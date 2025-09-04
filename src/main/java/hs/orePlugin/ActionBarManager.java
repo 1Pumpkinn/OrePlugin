@@ -56,7 +56,7 @@ public class ActionBarManager {
         OreType oreType = dataManager.getPlayerOre(player);
 
         if (oreType == null) {
-            sendActionBar(player, "§cNo Ore Type Assigned");
+            sendActionBar(player, "§cNo Ore Type Assigned • §7Use §e/oreabilities help §7for info");
             return;
         }
 
@@ -68,14 +68,23 @@ public class ActionBarManager {
         StringBuilder message = new StringBuilder();
 
         String oreColor = getOreColor(oreType);
-        message.append(oreColor).append("⚡ ").append(oreType.getDisplayName()).append(" Ore");
+        String oreName = oreType.getDisplayName();
 
+        // Ore type and ability name
+        message.append(oreColor).append("⚡ ").append(oreName).append(" Ore");
+
+        String abilityName = getAbilityName(oreType);
+        if (abilityName != null) {
+            message.append(" §8(§6").append(abilityName).append("§8)");
+        }
+
+        // Cooldown status
         if (dataManager.isOnCooldown(player)) {
             long remaining = dataManager.getRemainingCooldown(player);
-            message.append(" §8| §c❌ Cooldown: §f").append(remaining).append("s");
+            message.append(" §8| §c⏱ ").append(remaining).append("s");
 
             String progressBar = createProgressBar(remaining, oreType.getCooldown());
-            message.append(" §8[").append(progressBar).append("§8]");
+            message.append(" ").append(progressBar);
         } else {
             AbilityActivationManager activationManager = plugin.getActivationManager();
             if (activationManager.isBedrockMode(player)) {
@@ -85,29 +94,15 @@ public class ActionBarManager {
             }
         }
 
-        String abilityName = getAbilityName(oreType);
-        if (abilityName != null) {
-            message.append(" §8| §6").append(abilityName);
-        }
-
         return message.toString();
     }
 
     private String createProgressBar(long remaining, int totalCooldown) {
-        int totalBars = 10;
+        int totalBars = 20;
         double progress = (double) (totalCooldown - remaining) / totalCooldown;
         int filledBars = (int) Math.round(progress * totalBars);
 
         StringBuilder bar = new StringBuilder();
-
-        for (int i = 0; i < filledBars; i++) {
-            bar.append("§a█");
-        }
-
-        for (int i = filledBars; i < totalBars; i++) {
-            bar.append("§c█");
-        }
-
         return bar.toString();
     }
 

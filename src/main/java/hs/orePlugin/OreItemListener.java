@@ -22,7 +22,7 @@ public class OreItemListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerUseOreItem(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
@@ -31,6 +31,7 @@ public class OreItemListener implements Listener {
             return;
         }
 
+        // Cancel the event to prevent other interactions
         event.setCancelled(true);
 
         OreType newOreType = getOreTypeFromCustomItem(item);
@@ -43,7 +44,8 @@ public class OreItemListener implements Listener {
             return;
         }
 
-        consumeOreItem(player, item);
+        // Consume the item BEFORE applying effects
+        consumeOreItem(player, item, event);
         showSuccessEffects(player, newOreType);
         updatePlayerDisplay(player);
         applyOreTypeEffects(player, newOreType);
@@ -114,21 +116,32 @@ public class OreItemListener implements Listener {
         }
 
         if (currentOre != null) {
-            player.sendMessage("§e⚠ Replacing your current " + currentOre.getDisplayName() + " ore ability!");
+            player.sendMessage("§e⚠ Replacing your current " + currentOre.getDisplayName() + " ore ability with " + newOreType.getDisplayName() + "!");
             removeOreTypeEffects(player, currentOre);
         }
 
+        // Actually set the new ore type
         dataManager.setPlayerOre(player, newOreType);
         return true;
     }
 
-    private void consumeOreItem(Player player, ItemStack item) {
-        if (item.getAmount() > 1) {
-            item.setAmount(item.getAmount() - 1);
-        } else {
-            if (player.getInventory().getItemInMainHand().equals(item)) {
+    private void consumeOreItem(Player player, ItemStack item, PlayerInteractEvent event) {
+        // Check which hand the item is in and consume it properly
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+
+        if (mainHand != null && mainHand.equals(item)) {
+            // Item is in main hand
+            if (mainHand.getAmount() > 1) {
+                mainHand.setAmount(mainHand.getAmount() - 1);
+            } else {
                 player.getInventory().setItemInMainHand(null);
-            } else if (player.getInventory().getItemInOffHand().equals(item)) {
+            }
+        } else if (offHand != null && offHand.equals(item)) {
+            // Item is in off hand
+            if (offHand.getAmount() > 1) {
+                offHand.setAmount(offHand.getAmount() - 1);
+            } else {
                 player.getInventory().setItemInOffHand(null);
             }
         }
@@ -138,10 +151,12 @@ public class OreItemListener implements Listener {
         String oreColor = getOreColor(oreType);
         player.sendMessage("§a✓ You have unlocked the " + oreColor + oreType.getDisplayName() + " §aore ability!");
         player.sendMessage("§7Your new ability: §6" + getAbilityName(oreType));
+        player.sendMessage("§7Cooldown: §b" + oreType.getCooldown() + " seconds");
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
     }
 
     private void updatePlayerDisplay(Player player) {
+        // Restart action bar to show new ore type immediately
         plugin.getActionBarManager().stopActionBar(player);
         plugin.getActionBarManager().startActionBar(player);
     }
@@ -159,7 +174,10 @@ public class OreItemListener implements Listener {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9));
                 break;
             case STONE:
-                player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 0));
+                // Stone effects are handled in PlayerListener based on movement
+                break;
+            case DIRT:
+                // Apply mining fatigue when wearing leather armor (handled in PlayerListener)
                 break;
         }
     }
@@ -176,7 +194,13 @@ public class OreItemListener implements Listener {
                 player.removePotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE);
                 break;
             case STONE:
+                // Remove stone-related effects
+                player.removePotionEffect(PotionEffectType.REGENERATION);
                 player.removePotionEffect(PotionEffectType.SLOWNESS);
+                break;
+            case DIRT:
+                // Remove dirt-related effects
+                player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
                 break;
         }
     }
@@ -190,6 +214,7 @@ public class OreItemListener implements Listener {
 
     private void resetArmorAttribute(Player player) {
         if (player.getAttribute(org.bukkit.attribute.Attribute.ARMOR) != null) {
+            // Reset to default armor value (0)
             player.getAttribute(org.bukkit.attribute.Attribute.ARMOR).setBaseValue(0);
         }
     }
@@ -245,6 +270,7 @@ public class OreItemListener implements Listener {
         meta.setLore(java.util.Arrays.asList(
                 "§7Right-click to unlock this ore ability!",
                 "§7Ability: §6" + getStaticAbilityName(oreType),
+                "§7Cooldown: §b" + oreType.getCooldown() + " seconds",
                 "§8Custom crafted ore item"
         ));
 

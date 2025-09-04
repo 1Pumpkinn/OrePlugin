@@ -151,26 +151,68 @@ public class AbilityListener implements Listener {
 
         Player player = (Player) event.getWhoClicked();
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
-        OreType oreType = dataManager.getPlayerOre(player);
-
-        if (oreType == null) return;
+        OreType currentOreType = dataManager.getPlayerOre(player);
 
         ItemStack result = event.getRecipe().getResult();
 
-        // Check if crafting a custom ability ore
-        if (isCustomAbilityOre(result)) {
+        // Check if crafting a direct ore mastery item
+        if (RecipeManager.isDirectOreItem(result)) {
+            OreType newOreType = RecipeManager.getOreTypeFromDirectItem(result);
+
+            if (newOreType == null) {
+                event.setCancelled(true);
+                player.sendMessage("§cError: Invalid ore type!");
+                return;
+            }
+
+            // Check if already have this ore type
+            if (currentOreType == newOreType) {
+                event.setCancelled(true);
+                player.sendMessage("§cYou already have the " + newOreType.getDisplayName() + " ore ability!");
+                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                return;
+            }
+
+            // 25% chance to shatter
             if (random.nextDouble() < 0.25) {
                 event.setCancelled(true);
-                player.sendMessage("§cThe ability ore shattered during crafting!");
+                player.sendMessage("§cThe " + newOreType.getDisplayName() + " ore mastery shattered during crafting!");
+                player.sendMessage("§7Try again - you might get lucky next time!");
                 player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
                 return;
             }
 
-            player.sendMessage("§aYou have successfully crafted an ability ore!");
-            player.sendMessage("§7Right-click it to unlock the ability!");
+            // Cancel the event to prevent getting the item
+            event.setCancelled(true);
+
+            // Remove old ore effects if switching
+            if (currentOreType != null) {
+                removeOreTypeEffects(player, currentOreType);
+                player.sendMessage("§e⚠ Replacing your " + currentOreType.getDisplayName() + " ore ability!");
+            }
+
+            // Set new ore type directly
+            dataManager.setPlayerOre(player, newOreType);
+
+            // Apply new ore effects
+            applyOreTypeEffects(player, newOreType);
+
+            // Success messages and effects
+            String oreColor = getOreColor(newOreType);
+            player.sendMessage("§a✓ Successfully mastered the " + oreColor + newOreType.getDisplayName() + " §aore!");
+            player.sendMessage("§7Your new ability: §6" + getAbilityName(newOreType));
+            player.sendMessage("§7Cooldown: §b" + newOreType.getCooldown() + " seconds");
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
+
+            // Update action bar to show new ore type
+            plugin.getActionBarManager().stopActionBar(player);
+            plugin.getActionBarManager().startActionBar(player);
+
+            return;
         }
 
-        if (oreType == OreType.GOLD && (isToolWeaponOrArmor(result.getType()))) {
+        // Handle gold ore curse for tools/weapons/armor crafting
+        if (currentOreType == OreType.GOLD && isToolWeaponOrArmor(result.getType())) {
             new BukkitRunnable() {
                 @Override
                 public void run() {
@@ -185,13 +227,91 @@ public class AbilityListener implements Listener {
         }
     }
 
-    private boolean isCustomAbilityOre(ItemStack item) {
-        if (!item.hasItemMeta() || !item.getItemMeta().hasDisplayName()) {
-            return false;
+    private void applyOreTypeEffects(Player player, OreType oreType) {
+        switch (oreType) {
+            case IRON:
+                // Apply +2 armor bonus
+                if (player.getAttribute(org.bukkit.attribute.Attribute.ARMOR) != null) {
+                    double currentBase = player.getAttribute(org.bukkit.attribute.Attribute.ARMOR).getBaseValue();
+                    player.getAttribute(org.bukkit.attribute.Attribute.ARMOR).setBaseValue(currentBase + 2);
+                }
+                plugin.getPlayerDataManager().setIronDropTimer(player);
+                break;
+            case AMETHYST:
+                player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0));
+                break;
+            case EMERALD:
+                player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9));
+                break;
+            case STONE:
+                // Stone effects are handled in PlayerListener based on movement
+                break;
+            case DIRT:
+                // Dirt effects are handled in PlayerListener based on armor
+                break;
         }
+    }
 
-        String displayName = ChatColor.stripColor(item.getItemMeta().getDisplayName());
-        return displayName.endsWith("Ability Ore");
+    private void removeOreTypeEffects(Player player, OreType oreType) {
+        switch (oreType) {
+            case IRON:
+                // Reset armor attribute
+                if (player.getAttribute(org.bukkit.attribute.Attribute.ARMOR) != null) {
+                    player.getAttribute(org.bukkit.attribute.Attribute.ARMOR).setBaseValue(0);
+                }
+                break;
+            case AMETHYST:
+                player.removePotionEffect(PotionEffectType.GLOWING);
+                break;
+            case EMERALD:
+                player.removePotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE);
+                break;
+            case STONE:
+                player.removePotionEffect(PotionEffectType.REGENERATION);
+                player.removePotionEffect(PotionEffectType.SLOWNESS);
+                break;
+            case DIRT:
+                player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
+                break;
+        }
+    }
+
+    private String getOreColor(OreType oreType) {
+        switch (oreType) {
+            case DIRT: return "§6";
+            case WOOD: return "§e";
+            case STONE: return "§7";
+            case COAL: return "§8";
+            case COPPER: return "§c";
+            case IRON: return "§f";
+            case GOLD: return "§e";
+            case REDSTONE: return "§4";
+            case LAPIS: return "§9";
+            case EMERALD: return "§a";
+            case AMETHYST: return "§d";
+            case DIAMOND: return "§b";
+            case NETHERITE: return "§8";
+            default: return "§7";
+        }
+    }
+
+    private String getAbilityName(OreType oreType) {
+        switch (oreType) {
+            case DIRT: return "Earth's Blessing";
+            case WOOD: return "Lumberjack's Fury";
+            case STONE: return "Stone Skin";
+            case COAL: return "Sizzle";
+            case COPPER: return "Channel The Clouds";
+            case IRON: return "Bucket Roulette";
+            case GOLD: return "Goldrush";
+            case REDSTONE: return "Sticky Slime";
+            case LAPIS: return "Level Replenish";
+            case EMERALD: return "Bring Home The Effects";
+            case AMETHYST: return "Crystal Cluster";
+            case DIAMOND: return "Gleaming Power";
+            case NETHERITE: return "Debris, Debris, Debris";
+            default: return "Unknown Ability";
+        }
     }
 
     @EventHandler

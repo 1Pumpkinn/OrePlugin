@@ -44,7 +44,7 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         // Register events
         getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
         getServer().getPluginManager().registerEvents(new AbilityListener(this), this);
-        getServer().getPluginManager().registerEvents(new OreItemListener(this), this);
+        // Note: OreItemListener is no longer needed since ore switching happens through crafting
         getServer().getPluginManager().registerEvents(activationManager, this);
 
         // Register commands
@@ -59,8 +59,8 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         getCommand("bedrock").setExecutor(mainCommand);
 
         getLogger().info("Ore Abilities Plugin has been enabled!");
-        getLogger().info("Features: Enhanced ore info, admin commands, bedrock support, custom recipes!");
-        getLogger().info("Registered " + getRecipeCount() + " custom ore recipes!");
+        getLogger().info("Features: Direct crafting system, enhanced ore info, admin commands, bedrock support!");
+        getLogger().info("Registered " + getRecipeCount() + " custom ore recipes with 25% shatter chance!");
     }
 
     @Override
