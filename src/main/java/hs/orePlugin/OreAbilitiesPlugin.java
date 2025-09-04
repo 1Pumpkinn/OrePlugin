@@ -46,8 +46,6 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         getCommand("untrust").setExecutor(new TrustCommand(this));
         getCommand("trustlist").setExecutor(new TrustCommand(this));
         getCommand("oreabilities").setExecutor(new OreAbilitiesCommand(this));
-        getCommand("bedrock").setExecutor(new BedrockCommand(this)); // NEW
-        getCommand("ability").setExecutor(new BedrockCommand(this)); // NEW
 
         getLogger().info("Ore Abilities Plugin has been enabled!");
     }

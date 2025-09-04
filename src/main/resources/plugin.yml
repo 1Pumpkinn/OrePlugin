@@ -23,15 +23,6 @@ commands:
     usage: /oreabilities [info|help|reload|reset]
     permission: oreabilities.use
     aliases: [oa, ore]
-  bedrock:
-    description: Toggle Bedrock Edition compatibility mode
-    usage: /bedrock
-    permission: oreabilities.use
-  ability:
-    description: Activate your ore ability (Bedrock mode only)
-    usage: /ability
-    permission: oreabilities.use
-    aliases: [ab, activate]
 
 permissions:
   oreabilities.*:
