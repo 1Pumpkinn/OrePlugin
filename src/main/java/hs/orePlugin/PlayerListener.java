@@ -51,6 +51,9 @@ public class PlayerListener implements Listener {
         if (dataManager.getPlayerOre(player) == OreType.IRON) {
             dataManager.setIronDropTimer(player);
         }
+
+        // Start action bar for the player
+        plugin.getActionBarManager().startActionBar(player);
     }
 
     @EventHandler

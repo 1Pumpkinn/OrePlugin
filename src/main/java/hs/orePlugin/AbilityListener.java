@@ -187,6 +187,10 @@ public class AbilityListener implements Listener {
             if (craftedOre != null && !craftedOre.isStarter()) {
                 dataManager.setPlayerOre(player, craftedOre);
                 player.sendMessage("§aYou have acquired the " + craftedOre.getDisplayName() + " ore type!");
+
+                // Restart action bar to show new ore type immediately
+                plugin.getActionBarManager().stopActionBar(player);
+                plugin.getActionBarManager().startActionBar(player);
             }
         }
 
