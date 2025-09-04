@@ -2,7 +2,7 @@ name: OreAbilities
 version: 1.0.0
 main: hs.orePlugin.OreAbilitiesPlugin
 api-version: 1.21
-author: YourName
+author: '___Pumpkinn'
 description: A plugin that gives players special abilities based on ore types
 
 commands:
@@ -19,10 +19,18 @@ commands:
     usage: /trustlist
     permission: oreabilities.trust
   oreabilities:
-    description: Main ore abilities command
-    usage: /oreabilities [info|help|reload|reset]
+    description: Main ore abilities command with detailed ore information
+    usage: /oreabilities [info|oreinfo|help|set|bedrock|ability|reload|reset]
     permission: oreabilities.use
-    aliases: [oa, ore]
+    aliases: [oa, ore, oreinfo]
+  ability:
+    description: Activate your ore ability (Bedrock Edition support)
+    usage: /ability
+    permission: oreabilities.use
+  bedrock:
+    description: Toggle Bedrock Edition mode for ability activation
+    usage: /bedrock
+    permission: oreabilities.use
 
 permissions:
   oreabilities.*:
@@ -38,5 +46,5 @@ permissions:
     description: Use trust commands
     default: true
   oreabilities.admin:
-    description: Admin commands
+    description: Admin commands (set ore types, reset, reload)
     default: op
