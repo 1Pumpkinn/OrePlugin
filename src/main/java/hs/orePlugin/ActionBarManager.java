@@ -67,20 +67,16 @@ public class ActionBarManager {
     private String buildActionBarMessage(Player player, OreType oreType, PlayerDataManager dataManager) {
         StringBuilder message = new StringBuilder();
 
-        // Ore type with color coding
         String oreColor = getOreColor(oreType);
         message.append(oreColor).append("⚡ ").append(oreType.getDisplayName()).append(" Ore");
 
-        // Ability status
         if (dataManager.isOnCooldown(player)) {
             long remaining = dataManager.getRemainingCooldown(player);
             message.append(" §8| §c❌ Cooldown: §f").append(remaining).append("s");
 
-            // Add progress bar
             String progressBar = createProgressBar(remaining, oreType.getCooldown());
             message.append(" §8[").append(progressBar).append("§8]");
         } else {
-            // Show activation method based on player's mode
             AbilityActivationManager activationManager = plugin.getActivationManager();
             if (activationManager.isBedrockMode(player)) {
                 message.append(" §8| §a✓ Ready! §7(/ability)");
@@ -89,7 +85,6 @@ public class ActionBarManager {
             }
         }
 
-        // Add ability name
         String abilityName = getAbilityName(oreType);
         if (abilityName != null) {
             message.append(" §8| §6").append(abilityName);
@@ -105,12 +100,10 @@ public class ActionBarManager {
 
         StringBuilder bar = new StringBuilder();
 
-        // Filled portion (green)
         for (int i = 0; i < filledBars; i++) {
             bar.append("§a█");
         }
 
-        // Empty portion (red)
         for (int i = filledBars; i < totalBars; i++) {
             bar.append("§c█");
         }
@@ -120,20 +113,20 @@ public class ActionBarManager {
 
     private String getOreColor(OreType oreType) {
         switch (oreType) {
-            case DIRT: return "§6"; // Gold
-            case WOOD: return "§e"; // Yellow
-            case STONE: return "§7"; // Gray
-            case COAL: return "§8"; // Dark Gray
-            case COPPER: return "§c"; // Red
-            case IRON: return "§f"; // White
-            case GOLD: return "§e"; // Yellow
-            case REDSTONE: return "§4"; // Dark Red
-            case LAPIS: return "§9"; // Blue
-            case EMERALD: return "§a"; // Green
-            case AMETHYST: return "§d"; // Light Purple
-            case DIAMOND: return "§b"; // Aqua
-            case NETHERITE: return "§8"; // Dark Gray
-            default: return "§7"; // Default Gray
+            case DIRT: return "§6";
+            case WOOD: return "§e";
+            case STONE: return "§7";
+            case COAL: return "§8";
+            case COPPER: return "§c";
+            case IRON: return "§f";
+            case GOLD: return "§e";
+            case REDSTONE: return "§4";
+            case LAPIS: return "§9";
+            case EMERALD: return "§a";
+            case AMETHYST: return "§d";
+            case DIAMOND: return "§b";
+            case NETHERITE: return "§8";
+            default: return "§7";
         }
     }
 
@@ -161,7 +154,6 @@ public class ActionBarManager {
     }
 
     public void updateCooldownDisplay(Player player) {
-        // Force immediate update when ability is used
         if (actionBarTasks.containsKey(player.getUniqueId())) {
             updateActionBar(player);
         }

@@ -14,6 +14,7 @@ public class OreAbilitiesPlugin extends JavaPlugin {
     private TrustManager trustManager;
     private ActionBarManager actionBarManager;
     private AbilityActivationManager activationManager;
+    private RecipeManager recipeManager;
     private File playerDataFile;
     private FileConfiguration playerDataConfig;
 
@@ -35,10 +36,15 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         trustManager = new TrustManager(this);
         actionBarManager = new ActionBarManager(this);
         activationManager = new AbilityActivationManager(this);
+        recipeManager = new RecipeManager(this);
+
+        // Register recipes
+        recipeManager.registerAllRecipes();
 
         // Register events
         getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
         getServer().getPluginManager().registerEvents(new AbilityListener(this), this);
+        getServer().getPluginManager().registerEvents(new OreItemListener(this), this);
         getServer().getPluginManager().registerEvents(activationManager, this);
 
         // Register commands
@@ -53,7 +59,8 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         getCommand("bedrock").setExecutor(mainCommand);
 
         getLogger().info("Ore Abilities Plugin has been enabled!");
-        getLogger().info("New features: Enhanced ore info, admin set commands, bedrock support!");
+        getLogger().info("Features: Enhanced ore info, admin commands, bedrock support, custom recipes!");
+        getLogger().info("Registered " + getRecipeCount() + " custom ore recipes!");
     }
 
     @Override
@@ -66,6 +73,11 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         // Save bedrock data
         if (activationManager != null) {
             activationManager.saveBedrockData();
+        }
+
+        // Remove custom recipes
+        if (recipeManager != null) {
+            recipeManager.removeAllRecipes();
         }
 
         savePlayerData();
@@ -92,6 +104,27 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         }
     }
 
+    private int getRecipeCount() {
+        // Count of craftable ore types
+        return 10; // Coal, Copper, Iron, Gold, Redstone, Lapis, Emerald, Amethyst, Diamond, Netherite
+    }
+
+    // Reload method for admin commands
+    public void reloadPlugin() {
+        // Reload config
+        reloadConfig();
+
+        // Reload player data
+        playerDataManager.loadPlayerData();
+
+        // Reload recipes
+        recipeManager.removeAllRecipes();
+        recipeManager.registerAllRecipes();
+
+        getLogger().info("Ore Abilities Plugin reloaded successfully!");
+    }
+
+    // Getters
     public static OreAbilitiesPlugin getInstance() {
         return instance;
     }
@@ -114,6 +147,10 @@ public class OreAbilitiesPlugin extends JavaPlugin {
 
     public AbilityActivationManager getActivationManager() {
         return activationManager;
+    }
+
+    public RecipeManager getRecipeManager() {
+        return recipeManager;
     }
 
     public FileConfiguration getPlayerDataConfig() {

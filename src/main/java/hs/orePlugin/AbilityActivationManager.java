@@ -39,12 +39,13 @@ public class AbilityActivationManager implements Listener {
         if (player.isSneaking() &&
                 (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK)) {
 
-            // Try to activate ability first
+            // Try to activate ability
             boolean abilityActivated = tryActivateAbility(player, "Shift+Right-Click");
 
-            // Only cancel the event if we successfully activated an ability
+            // Only cancel block interaction events if we successfully activated an ability
             // This prevents interference with normal block interactions if ability fails
-            if (abilityActivated) {
+            // Always allow air interactions to pass through since they don't interfere
+            if (abilityActivated && event.getAction() == Action.RIGHT_CLICK_BLOCK) {
                 event.setCancelled(true);
             }
         }

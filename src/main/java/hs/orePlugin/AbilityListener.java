@@ -1,5 +1,6 @@
 package hs.orePlugin;
 
+import org.bukkit.ChatColor;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -42,7 +43,6 @@ public class AbilityListener implements Listener {
 
         if (oreType == null) return;
 
-        // Check if target is trusted (prevent damage to trusted players)
         if (event.getEntity() instanceof Player) {
             Player target = (Player) event.getEntity();
             if (trustManager.isTrusted(attacker, target)) {
@@ -51,10 +51,8 @@ public class AbilityListener implements Listener {
             }
         }
 
-        // Handle ability-specific combat effects
         switch (oreType) {
             case WOOD:
-                // Wood ability - axes deal 1.5x damage
                 if (abilityManager.hasActiveEffect(attacker)) {
                     ItemStack weapon = attacker.getInventory().getItemInMainHand();
                     if (weapon != null && weapon.getType().name().contains("AXE")) {
@@ -66,14 +64,12 @@ public class AbilityListener implements Listener {
                 break;
 
             case COPPER:
-                // Copper ability - lightning on hit
                 if (abilityManager.hasActiveEffect(attacker) && event.getEntity() instanceof LivingEntity) {
                     event.getEntity().getWorld().strikeLightning(event.getEntity().getLocation());
                 }
                 break;
 
             case DIAMOND:
-                // Diamond ability - 2x damage with diamond sword
                 if (abilityManager.hasActiveEffect(attacker)) {
                     ItemStack weapon = attacker.getInventory().getItemInMainHand();
                     if (weapon != null && weapon.getType() == Material.DIAMOND_SWORD) {
@@ -84,20 +80,15 @@ public class AbilityListener implements Listener {
                 break;
 
             case REDSTONE:
-                // Redstone ability - prevent jumping
                 if (abilityManager.hasActiveEffect(attacker) && event.getEntity() instanceof Player) {
                     Player target = (Player) event.getEntity();
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 200, -10)); // Jump boost -10 (no jumping)
+                    target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 200, -10));
                     target.sendMessage("§4You cannot jump for 10 seconds!");
                     attacker.sendMessage("§cSticky Slime effect applied to " + target.getName() + "!");
-
-                    // Remove active effect from attacker (one-time use)
-                    plugin.getAbilityManager().hasActiveEffect(attacker); // This will be handled in AbilityManager
                 }
                 break;
 
             case AMETHYST:
-                // Amethyst upside - extra damage with amethyst shards in offhand
                 ItemStack offhand = attacker.getInventory().getItemInOffHand();
                 if (offhand != null && offhand.getType() == Material.AMETHYST_SHARD) {
                     event.setDamage(event.getDamage() + 1.5);
@@ -105,7 +96,6 @@ public class AbilityListener implements Listener {
                 break;
 
             case COAL:
-                // Coal upside - +1 damage when on fire
                 if (attacker.getFireTicks() > 0) {
                     event.setDamage(event.getDamage() + 1);
                     attacker.playSound(attacker.getLocation(), Sound.BLOCK_FIRE_AMBIENT, 1.0f, 1.0f);
@@ -125,10 +115,8 @@ public class AbilityListener implements Listener {
 
         if (oreType == null) return;
 
-        // Handle passive downsides and ability effects
         switch (oreType) {
             case COAL:
-                // Coal downside - water damage
                 if (event.getCause() == EntityDamageEvent.DamageCause.DROWNING ||
                         (player.isInWater() && event.getCause() != EntityDamageEvent.DamageCause.FIRE)) {
                     event.setDamage(event.getDamage() + 2);
@@ -136,7 +124,6 @@ public class AbilityListener implements Listener {
                 break;
 
             case REDSTONE:
-                // Redstone downside - bees and slimes do 5x damage
                 if (event instanceof EntityDamageByEntityEvent) {
                     EntityDamageByEntityEvent damageEvent = (EntityDamageByEntityEvent) event;
                     if (damageEvent.getDamager() instanceof Bee || damageEvent.getDamager() instanceof Slime) {
@@ -144,18 +131,15 @@ public class AbilityListener implements Listener {
                         player.sendMessage("§cRedstone weakness to " + damageEvent.getDamager().getType().name().toLowerCase() + "!");
                     }
                 }
-                // Redstone upside - no dripstone damage
                 if (event.getCause() == EntityDamageEvent.DamageCause.FALLING_BLOCK) {
-                    // This would need more specific checking for dripstone in a real implementation
                     event.setCancelled(true);
                 }
                 break;
 
             case AMETHYST:
-                // Amethyst ability - crystal mode (no damage, no knockback)
                 if (abilityManager.hasActiveEffect(player)) {
                     event.setCancelled(true);
-                    player.setVelocity(player.getVelocity().multiply(0)); // No knockback
+                    player.setVelocity(player.getVelocity().multiply(0));
                 }
                 break;
         }
@@ -173,28 +157,19 @@ public class AbilityListener implements Listener {
 
         ItemStack result = event.getRecipe().getResult();
 
-        // Check for ore crafting (25% chance to shatter)
-        if (isOreItem(result.getType())) {
+        // Check if crafting a custom ability ore
+        if (isCustomAbilityOre(result)) {
             if (random.nextDouble() < 0.25) {
                 event.setCancelled(true);
-                player.sendMessage("§cThe ore shattered during crafting!");
+                player.sendMessage("§cThe ability ore shattered during crafting!");
                 player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
                 return;
             }
 
-            // Assign ore type if successfully crafted
-            OreType craftedOre = getOreTypeFromItem(result.getType());
-            if (craftedOre != null && !craftedOre.isStarter()) {
-                dataManager.setPlayerOre(player, craftedOre);
-                player.sendMessage("§aYou have acquired the " + craftedOre.getDisplayName() + " ore type!");
-
-                // Restart action bar to show new ore type immediately
-                plugin.getActionBarManager().stopActionBar(player);
-                plugin.getActionBarManager().startActionBar(player);
-            }
+            player.sendMessage("§aYou have successfully crafted an ability ore!");
+            player.sendMessage("§7Right-click it to unlock the ability!");
         }
 
-        // Gold downside - random durability for tools/weapons/armor
         if (oreType == OreType.GOLD && (isToolWeaponOrArmor(result.getType()))) {
             new BukkitRunnable() {
                 @Override
@@ -210,6 +185,15 @@ public class AbilityListener implements Listener {
         }
     }
 
+    private boolean isCustomAbilityOre(ItemStack item) {
+        if (!item.hasItemMeta() || !item.getItemMeta().hasDisplayName()) {
+            return false;
+        }
+
+        String displayName = ChatColor.stripColor(item.getItemMeta().getDisplayName());
+        return displayName.endsWith("Ability Ore");
+    }
+
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player)) return;
@@ -218,7 +202,6 @@ public class AbilityListener implements Listener {
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
         OreType oreType = dataManager.getPlayerOre(player);
 
-        // Lapis downside - cannot use anvils for levels
         if (oreType == OreType.LAPIS && event.getInventory().getType().name().contains("ANVIL")) {
             if (event.getSlot() == 2) { // Result slot
                 player.sendMessage("§cLapis prevents you from using levels with anvils!");
@@ -233,7 +216,6 @@ public class AbilityListener implements Listener {
         AbilityManager abilityManager = plugin.getAbilityManager();
         OreType oreType = dataManager.getPlayerOre(player);
 
-        // Lapis ability - exp splashing gives regen
         if (oreType == OreType.LAPIS && abilityManager.hasActiveEffect(player)) {
             player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 100, 0));
         }
@@ -245,7 +227,6 @@ public class AbilityListener implements Listener {
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
         OreType oreType = dataManager.getPlayerOre(player);
 
-        // Netherite downside - 50% chance water bucket becomes lava
         if (oreType == OreType.NETHERITE && event.getBucket() == Material.WATER_BUCKET) {
             if (random.nextDouble() < 0.5) {
                 new BukkitRunnable() {
@@ -259,13 +240,6 @@ public class AbilityListener implements Listener {
         }
     }
 
-    private boolean isOreItem(Material material) {
-        return material.name().contains("_ORE") ||
-                material == Material.COAL || material == Material.DIAMOND ||
-                material == Material.EMERALD || material == Material.AMETHYST_SHARD ||
-                material.name().contains("_INGOT");
-    }
-
     private boolean isToolWeaponOrArmor(Material material) {
         String name = material.name();
         return name.contains("_SWORD") || name.contains("_AXE") ||
@@ -273,21 +247,5 @@ public class AbilityListener implements Listener {
                 name.contains("_HOE") || name.contains("_HELMET") ||
                 name.contains("_CHESTPLATE") || name.contains("_LEGGINGS") ||
                 name.contains("_BOOTS");
-    }
-
-    private OreType getOreTypeFromItem(Material material) {
-        switch (material) {
-            case COAL: return OreType.COAL;
-            case COPPER_INGOT: return OreType.COPPER;
-            case IRON_INGOT: return OreType.IRON;
-            case GOLD_INGOT: return OreType.GOLD;
-            case REDSTONE: return OreType.REDSTONE;
-            case LAPIS_LAZULI: return OreType.LAPIS;
-            case EMERALD: return OreType.EMERALD;
-            case AMETHYST_SHARD: return OreType.AMETHYST;
-            case DIAMOND: return OreType.DIAMOND;
-            case NETHERITE_INGOT: return OreType.NETHERITE;
-            default: return null;
-        }
     }
 }
