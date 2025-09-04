@@ -12,6 +12,7 @@ public class OreAbilitiesPlugin extends JavaPlugin {
     private PlayerDataManager playerDataManager;
     private AbilityManager abilityManager;
     private TrustManager trustManager;
+    private ActionBarManager actionBarManager; // ADD THIS LINE - Missing field declaration
     private File playerDataFile;
     private FileConfiguration playerDataConfig;
 
@@ -31,6 +32,7 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         playerDataManager = new PlayerDataManager(this);
         abilityManager = new AbilityManager(this);
         trustManager = new TrustManager(this);
+        actionBarManager = new ActionBarManager(this); // ADD THIS LINE - Initialize ActionBarManager
 
         // Register events
         getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
@@ -47,6 +49,11 @@ public class OreAbilitiesPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        // Stop all action bars when plugin disables
+        if (actionBarManager != null) {
+            actionBarManager.stopAllActionBars();
+        }
+
         savePlayerData();
         getLogger().info("Ore Abilities Plugin has been disabled!");
     }
@@ -85,6 +92,10 @@ public class OreAbilitiesPlugin extends JavaPlugin {
 
     public TrustManager getTrustManager() {
         return trustManager;
+    }
+
+    public ActionBarManager getActionBarManager() {
+        return actionBarManager; // This will now work correctly
     }
 
     public FileConfiguration getPlayerDataConfig() {

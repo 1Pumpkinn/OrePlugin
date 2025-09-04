@@ -45,6 +45,9 @@ public class AbilityManager {
         executeAbility(player, oreType);
         dataManager.setCooldown(player, oreType.getCooldown());
 
+        // Update action bar immediately
+        plugin.getActionBarManager().updateCooldownDisplay(player);
+
         return true;
     }
 

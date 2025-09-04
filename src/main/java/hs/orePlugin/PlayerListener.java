@@ -3,10 +3,7 @@ package hs.orePlugin;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerItemConsumeEvent;
+import org.bukkit.event.player.*;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.Material;
@@ -54,6 +51,13 @@ public class PlayerListener implements Listener {
         if (dataManager.getPlayerOre(player) == OreType.IRON) {
             dataManager.setIronDropTimer(player);
         }
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        Player player = event.getPlayer();
+        // Stop action bar display
+        plugin.getActionBarManager().stopActionBar(player);
     }
 
     @EventHandler(priority = EventPriority.HIGH)
