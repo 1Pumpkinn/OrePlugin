@@ -25,8 +25,8 @@ public class AbilityActivationManager implements Listener {
         loadBedrockData();
     }
 
-    // Main activation method - Shift + Right-click only
-    @EventHandler(priority = EventPriority.HIGH)
+    // Main activation method - Shift + Right-click (works on air and blocks)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
 
@@ -35,16 +35,22 @@ public class AbilityActivationManager implements Listener {
             return;
         }
 
-        // Only activate on Shift + Right-click
-        if ((event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK)
-                && player.isSneaking()) {
+        // Check for Shift + Right-click on both air and blocks
+        if (player.isSneaking() &&
+                (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK)) {
 
-            event.setCancelled(true);
-            tryActivateAbility(player, "Shift+Right-Click");
+            // Try to activate ability first
+            boolean abilityActivated = tryActivateAbility(player, "Shift+Right-Click");
+
+            // Only cancel the event if we successfully activated an ability
+            // This prevents interference with normal block interactions if ability fails
+            if (abilityActivated) {
+                event.setCancelled(true);
+            }
         }
     }
 
-    private void tryActivateAbility(Player player, String method) {
+    private boolean tryActivateAbility(Player player, String method) {
         UUID uuid = player.getUniqueId();
         long currentTime = System.currentTimeMillis();
 
@@ -52,7 +58,7 @@ public class AbilityActivationManager implements Listener {
         if (lastActivation.containsKey(uuid)) {
             long timeDiff = currentTime - lastActivation.get(uuid);
             if (timeDiff < ACTIVATION_COOLDOWN) {
-                return; // Too soon, ignore
+                return false; // Too soon, ignore
             }
         }
 
@@ -65,6 +71,8 @@ public class AbilityActivationManager implements Listener {
             // Optional: Show activation method in action bar briefly
             player.sendMessage("§8Ability activated via " + method);
         }
+
+        return success;
     }
 
     public boolean isBedrockMode(Player player) {
@@ -80,7 +88,7 @@ public class AbilityActivationManager implements Listener {
             player.sendMessage("§7Shift + Right-click activation has been disabled.");
         } else {
             player.sendMessage("§aJava mode enabled! Use §6Shift + Right-click §eto activate abilities.");
-            player.sendMessage("§7This won't interfere with block placement!");
+            player.sendMessage("§7Works on both air and blocks! Won't interfere with normal interactions.");
         }
     }
 

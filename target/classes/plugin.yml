@@ -2,7 +2,7 @@ name: OreAbilities
 version: 1.0.0
 main: hs.orePlugin.OreAbilitiesPlugin
 api-version: 1.21
-author: YourName
+author: '___Pumpkinn'
 description: A plugin that gives players special abilities based on ore types
 
 commands:
