@@ -1,45 +1,42 @@
-name: OrePlugin
-version: 1.0-SNAPSHOT
-main: hs.orePlugin.OrePlugin
+name: OreAbilities
+version: 1.0.0
+main: hs.orePlugin.OreAbilitiesPlugin
 api-version: 1.21
 author: YourName
-description: A plugin with ore abilities and trust system
+description: A plugin that gives players special abilities based on ore types
 
 commands:
   trust:
-    description: Trust a player
+    description: Trust a player to prevent friendly fire
     usage: /trust <player>
-    permission: oreplugin.trust
+    permission: oreabilities.trust
   untrust:
-    description: Untrust a player
+    description: Remove trust from a player
     usage: /untrust <player>
-    permission: oreplugin.untrust
+    permission: oreabilities.trust
   trustlist:
     description: List all trusted players
     usage: /trustlist
-    permission: oreplugin.trustlist
-  ore:
-    description: Ore plugin commands
-    usage: /ore <subcommand>
-    permission: oreplugin.ore
+    permission: oreabilities.trust
+  oreabilities:
+    description: Main ore abilities command
+    usage: /oreabilities [info|help|reload|reset]
+    permission: oreabilities.use
+    aliases: [oa, ore]
 
 permissions:
-  oreplugin.*:
-    description: All OrePlugin permissions
+  oreabilities.*:
+    description: All ore abilities permissions
     children:
-      oreplugin.trust: true
-      oreplugin.untrust: true
-      oreplugin.trustlist: true
-      oreplugin.ore: true
-  oreplugin.trust:
-    description: Allows trusting players
+      oreabilities.use: true
+      oreabilities.trust: true
+      oreabilities.admin: true
+  oreabilities.use:
+    description: Use ore abilities
     default: true
-  oreplugin.untrust:
-    description: Allows untrusting players
+  oreabilities.trust:
+    description: Use trust commands
     default: true
-  oreplugin.trustlist:
-    description: Allows viewing trust list
-    default: true
-  oreplugin.ore:
-    description: Allows ore commands
-    default: true
+  oreabilities.admin:
+    description: Admin commands
+    default: op

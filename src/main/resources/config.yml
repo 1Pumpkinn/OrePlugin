@@ -1,0 +1,77 @@
+# Ore Abilities Plugin Configuration
+
+# Plugin Settings
+plugin:
+  # Enable debug messages
+  debug: false
+
+  # Auto-save interval (in minutes)
+  auto-save-interval: 5
+
+# Ore Settings
+ores:
+  # Chance for ore to shatter when crafting (0.0 - 1.0)
+  shatter-chance: 0.25
+
+  # Enable/disable specific ore types
+  enabled-ores:
+    dirt: true
+    wood: true
+    stone: true
+    coal: true
+    copper: true
+    iron: true
+    gold: true
+    redstone: true
+    lapis: true
+    emerald: true
+    amethyst: true
+    diamond: true
+    netherite: true
+
+# Ability Cooldowns (in seconds) - can be overridden here
+cooldowns:
+  dirt: 30
+  wood: 30
+  stone: 30
+  coal: 10
+  copper: 45
+  iron: 45
+  gold: 75
+  redstone: 80
+  lapis: 240
+  emerald: 270
+  amethyst: 120
+  diamond: 360
+  netherite: 600
+
+# Trust System Settings
+trust:
+  # Maximum number of trusted players per player
+  max-trusted-players: 10
+
+  # Trust request timeout (in seconds)
+  request-timeout: 60
+
+  # Enable trust notifications
+  enable-notifications: true
+
+# Effects Settings
+effects:
+  # Iron ore item drop interval (in minutes)
+  iron-drop-interval: 10
+
+  # Enable particle effects
+  enable-particles: true
+
+  # Enable sound effects
+  enable-sounds: true
+
+# Messages (can be customized)
+messages:
+  no-permission: "&cYou don't have permission to use this command!"
+  player-not-found: "&cPlayer not found or not online!"
+  ability-on-cooldown: "&cAbility on cooldown! {time} seconds remaining."
+  ability-ready: "&aAbility ready! Right-click to use."
+  ore-assigned: "&6You have been assigned the {ore} ore type!"
+  ore-shattered: "&cThe ore shattered during crafting!"
