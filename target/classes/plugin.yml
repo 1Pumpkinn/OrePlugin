@@ -1,0 +1,45 @@
+name: OrePlugin
+version: 1.0-SNAPSHOT
+main: hs.orePlugin.OrePlugin
+api-version: 1.21
+author: YourName
+description: A plugin with ore abilities and trust system
+
+commands:
+  trust:
+    description: Trust a player
+    usage: /trust <player>
+    permission: oreplugin.trust
+  untrust:
+    description: Untrust a player
+    usage: /untrust <player>
+    permission: oreplugin.untrust
+  trustlist:
+    description: List all trusted players
+    usage: /trustlist
+    permission: oreplugin.trustlist
+  ore:
+    description: Ore plugin commands
+    usage: /ore <subcommand>
+    permission: oreplugin.ore
+
+permissions:
+  oreplugin.*:
+    description: All OrePlugin permissions
+    children:
+      oreplugin.trust: true
+      oreplugin.untrust: true
+      oreplugin.trustlist: true
+      oreplugin.ore: true
+  oreplugin.trust:
+    description: Allows trusting players
+    default: true
+  oreplugin.untrust:
+    description: Allows untrusting players
+    default: true
+  oreplugin.trustlist:
+    description: Allows viewing trust list
+    default: true
+  oreplugin.ore:
+    description: Allows ore commands
+    default: true
