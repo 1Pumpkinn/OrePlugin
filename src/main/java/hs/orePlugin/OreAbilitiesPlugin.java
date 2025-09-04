@@ -12,7 +12,8 @@ public class OreAbilitiesPlugin extends JavaPlugin {
     private PlayerDataManager playerDataManager;
     private AbilityManager abilityManager;
     private TrustManager trustManager;
-    private ActionBarManager actionBarManager; // ADD THIS LINE - Missing field declaration
+    private ActionBarManager actionBarManager;
+    private AbilityActivationManager activationManager; // NEW
     private File playerDataFile;
     private FileConfiguration playerDataConfig;
 
@@ -32,17 +33,21 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         playerDataManager = new PlayerDataManager(this);
         abilityManager = new AbilityManager(this);
         trustManager = new TrustManager(this);
-        actionBarManager = new ActionBarManager(this); // ADD THIS LINE - Initialize ActionBarManager
+        actionBarManager = new ActionBarManager(this);
+        activationManager = new AbilityActivationManager(this); // NEW
 
         // Register events
         getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
         getServer().getPluginManager().registerEvents(new AbilityListener(this), this);
+        getServer().getPluginManager().registerEvents(activationManager, this); // NEW
 
         // Register commands
         getCommand("trust").setExecutor(new TrustCommand(this));
         getCommand("untrust").setExecutor(new TrustCommand(this));
         getCommand("trustlist").setExecutor(new TrustCommand(this));
         getCommand("oreabilities").setExecutor(new OreAbilitiesCommand(this));
+        getCommand("bedrock").setExecutor(new BedrockCommand(this)); // NEW
+        getCommand("ability").setExecutor(new BedrockCommand(this)); // NEW
 
         getLogger().info("Ore Abilities Plugin has been enabled!");
     }
@@ -52,6 +57,11 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         // Stop all action bars when plugin disables
         if (actionBarManager != null) {
             actionBarManager.stopAllActionBars();
+        }
+
+        // Save bedrock data
+        if (activationManager != null) {
+            activationManager.saveBedrockData();
         }
 
         savePlayerData();
@@ -95,7 +105,11 @@ public class OreAbilitiesPlugin extends JavaPlugin {
     }
 
     public ActionBarManager getActionBarManager() {
-        return actionBarManager; // This will now work correctly
+        return actionBarManager;
+    }
+
+    public AbilityActivationManager getActivationManager() { // NEW
+        return activationManager;
     }
 
     public FileConfiguration getPlayerDataConfig() {

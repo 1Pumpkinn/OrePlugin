@@ -41,7 +41,15 @@ public class PlayerListener implements Listener {
             dataManager.assignRandomStarterOre(player);
             OreType oreType = dataManager.getPlayerOre(player);
             player.sendMessage("§6Welcome! You have been assigned the " + oreType.getDisplayName() + " ore type!");
-            player.sendMessage("§eUse right-click to activate your ability!");
+
+            // Show activation methods based on mode
+            AbilityActivationManager activationManager = plugin.getActivationManager();
+            if (activationManager.isBedrockMode(player)) {
+                player.sendMessage("§eUse §6/ability §eto activate your abilities!");
+            } else {
+                player.sendMessage("§eUse §6Shift + Right-click §eto activate abilities!");
+                player.sendMessage("§7Use §6/bedrock §efor Bedrock Edition support");
+            }
         }
 
         // Apply passive effects based on ore type
@@ -86,15 +94,7 @@ public class PlayerListener implements Listener {
         handleMovementEffects(player, oreType, blockBelow.getType());
     }
 
-    @EventHandler
-    public void onPlayerInteract(PlayerInteractEvent event) {
-        Player player = event.getPlayer();
-
-        // Check for ability activation (right-click)
-        if (event.getAction().toString().contains("RIGHT_CLICK")) {
-            plugin.getAbilityManager().useAbility(player);
-        }
-    }
+    // REMOVED onPlayerInteract method - now handled by AbilityActivationManager
 
     @EventHandler
     public void onPlayerConsume(PlayerItemConsumeEvent event) {

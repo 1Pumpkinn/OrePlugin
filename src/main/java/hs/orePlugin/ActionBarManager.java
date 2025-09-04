@@ -80,7 +80,13 @@ public class ActionBarManager {
             String progressBar = createProgressBar(remaining, oreType.getCooldown());
             message.append(" §8[").append(progressBar).append("§8]");
         } else {
-            message.append(" §8| §a✓ Ready! §7(Right-Click)");
+            // Show activation method based on player's mode
+            AbilityActivationManager activationManager = plugin.getActivationManager();
+            if (activationManager.isBedrockMode(player)) {
+                message.append(" §8| §a✓ Ready! §7(/ability)");
+            } else {
+                message.append(" §8| §a✓ Ready! §7(Shift+Right-Click)");
+            }
         }
 
         // Add ability name
