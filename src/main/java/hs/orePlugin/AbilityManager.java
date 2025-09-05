@@ -44,7 +44,7 @@ public class AbilityManager {
         OreType oreType = dataManager.getPlayerOre(player);
         if (oreType == null) {
             String message = configs != null ? configs.getMessage("no-ore-type")
-                    : "§cYou don't have an ore type assigned!";
+                    : "&cYou don't have an ore type assigned!";
             player.sendMessage(message);
             return false;
         }
@@ -318,12 +318,21 @@ public class AbilityManager {
         // Cancel existing timer if any
         if (ironDropTasks.containsKey(uuid)) {
             ironDropTasks.get(uuid).cancel();
+            ironDropTasks.remove(uuid);
         }
+
+        // Get the interval from config (in minutes)
+        OreConfigs configs = plugin.getOreConfigs();
+        int intervalMinutes = configs != null ? configs.getIronDropInterval() : 10;
+        long intervalTicks = intervalMinutes * 60 * 20L; // Convert minutes to ticks (20 ticks = 1 second)
+
+        plugin.getLogger().info("Starting Iron drop timer for " + player.getName() + " - interval: " + intervalMinutes + " minutes (" + intervalTicks + " ticks)");
 
         BukkitTask task = new BukkitRunnable() {
             @Override
             public void run() {
                 if (!player.isOnline()) {
+                    plugin.getLogger().info("Iron timer cancelled for " + player.getName() + " - player offline");
                     cancel();
                     ironDropTasks.remove(uuid);
                     return;
@@ -331,14 +340,16 @@ public class AbilityManager {
 
                 // Check if player still has iron ore type
                 if (plugin.getPlayerDataManager().getPlayerOre(player) != OreType.IRON) {
+                    plugin.getLogger().info("Iron timer cancelled for " + player.getName() + " - no longer iron ore type");
                     cancel();
                     ironDropTasks.remove(uuid);
                     return;
                 }
 
+                plugin.getLogger().info("Iron timer triggered for " + player.getName() + " - dropping random item");
                 dropRandomItem(player);
             }
-        }.runTaskTimer(plugin, 12000L, 12000L); // 10 minutes = 12000 ticks
+        }.runTaskTimer(plugin, intervalTicks, intervalTicks); // First drop after full interval, then repeat
 
         ironDropTasks.put(uuid, task);
     }
@@ -348,6 +359,7 @@ public class AbilityManager {
         if (ironDropTasks.containsKey(uuid)) {
             ironDropTasks.get(uuid).cancel();
             ironDropTasks.remove(uuid);
+            plugin.getLogger().info("Iron timer cancelled for " + player.getName());
         }
     }
 
@@ -355,26 +367,41 @@ public class AbilityManager {
         ItemStack[] inventory = player.getInventory().getContents();
         java.util.List<Integer> validSlots = new java.util.ArrayList<>();
 
-        // Find slots with items
-        for (int i = 0; i < inventory.length; i++) {
+        // Find slots with items (exclude armor slots 36-39)
+        for (int i = 0; i < 36; i++) { // Only check main inventory, not armor
             if (inventory[i] != null && inventory[i].getType() != Material.AIR) {
                 validSlots.add(i);
             }
         }
 
         if (validSlots.isEmpty()) {
-            return; // No items to drop
+            player.sendMessage("§c⚠ Iron curse tried to drop an item, but your inventory is empty!");
+            plugin.getLogger().info("Iron drop failed for " + player.getName() + " - no items in inventory");
+            return;
         }
 
-        // Pick random slot and drop the item
+        // Pick random slot and drop one item from that stack
         int randomSlot = validSlots.get(random.nextInt(validSlots.size()));
-        ItemStack itemToDrop = inventory[randomSlot];
+        ItemStack itemStack = inventory[randomSlot];
 
+        // Create a single item to drop
+        ItemStack itemToDrop = itemStack.clone();
+        itemToDrop.setAmount(1);
+
+        // Drop the item
         player.getWorld().dropItemNaturally(player.getLocation(), itemToDrop);
-        player.getInventory().setItem(randomSlot, null);
 
-        player.sendMessage("§c⚠ Iron curse! A random item dropped from your inventory!");
+        // Reduce the stack size or remove it if it was the last item
+        if (itemStack.getAmount() > 1) {
+            itemStack.setAmount(itemStack.getAmount() - 1);
+        } else {
+            player.getInventory().setItem(randomSlot, null);
+        }
+
+        player.sendMessage("§c⚠ Iron curse! A " + itemToDrop.getType().name().toLowerCase().replace("_", " ") + " dropped from your inventory!");
         player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1.0f, 0.5f);
+
+        plugin.getLogger().info("Iron drop successful for " + player.getName() + " - dropped " + itemToDrop.getType().name());
     }
 
     // FIXED: Amethyst permanent glowing implementation
