@@ -369,11 +369,12 @@ public class AbilityListener implements Listener {
                     double currentBase = armorAttribute.getBaseValue();
                     armorAttribute.setBaseValue(currentBase + 2);
                 }
-                plugin.getPlayerDataManager().setIronDropTimer(player);
+                // FIXED: Start iron drop timer when getting iron ore
+                plugin.getAbilityManager().startIronDropTimer(player);
                 break;
             case AMETHYST:
-                // FIXED: Apply permanent glowing
-                player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0, false, false));
+                // FIXED: Start permanent glowing effect
+                plugin.getAbilityManager().startAmethystGlowing(player);
                 break;
             case EMERALD:
                 // Infinite hero of the village
@@ -401,9 +402,12 @@ public class AbilityListener implements Listener {
                     double currentBase = armorAttribute.getBaseValue();
                     armorAttribute.setBaseValue(Math.max(0, currentBase - 2));
                 }
+                // FIXED: Cancel iron drop timer when losing iron ore
+                plugin.getAbilityManager().cancelIronDropTimer(player);
                 break;
             case AMETHYST:
-                player.removePotionEffect(PotionEffectType.GLOWING);
+                // FIXED: Cancel amethyst glowing when losing amethyst ore
+                plugin.getAbilityManager().cancelAmethystGlowing(player);
                 break;
             case EMERALD:
                 player.removePotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE);
@@ -413,10 +417,12 @@ public class AbilityListener implements Listener {
                 stopArmorDurabilityTimer(player);
                 break;
             case STONE:
+                // Remove stone-related effects
                 player.removePotionEffect(PotionEffectType.REGENERATION);
                 player.removePotionEffect(PotionEffectType.SLOWNESS);
                 break;
             case DIRT:
+                // Remove dirt-related effects
                 player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
                 break;
         }

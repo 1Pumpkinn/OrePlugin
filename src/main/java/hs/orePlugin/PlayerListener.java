@@ -55,10 +55,8 @@ public class PlayerListener implements Listener {
         // Apply passive effects based on ore type
         applyPassiveEffects(player);
 
-        // Start iron drop timer if player has iron ore
-        if (dataManager.getPlayerOre(player) == OreType.IRON) {
-            dataManager.setIronDropTimer(player);
-        }
+        // FIXED: Start persistent timers for Iron and Amethyst users
+        plugin.getAbilityManager().restartPlayerTimers(player);
 
         // Start action bar for the player
         plugin.getActionBarManager().startActionBar(player);
@@ -69,6 +67,9 @@ public class PlayerListener implements Listener {
         Player player = event.getPlayer();
         // Stop action bar display
         plugin.getActionBarManager().stopActionBar(player);
+
+        // FIXED: Clean up timers when player leaves
+        plugin.getAbilityManager().cleanup(player);
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -93,8 +94,6 @@ public class PlayerListener implements Listener {
 
         handleMovementEffects(player, oreType, blockBelow.getType());
     }
-
-    // REMOVED onPlayerInteract method - now handled by AbilityActivationManager
 
     @EventHandler
     public void onPlayerConsume(PlayerItemConsumeEvent event) {
@@ -140,10 +139,7 @@ public class PlayerListener implements Listener {
             }
         }
 
-        // Check for iron ore item drop timer
-        if (oreType == OreType.IRON && dataManager.shouldDropIronItem(player)) {
-            dropRandomInventoryItem(player);
-        }
+        // REMOVED iron drop check here - it's now handled by timer in AbilityManager
     }
 
     private void handleMovementEffects(Player player, OreType oreType, Material blockBelow) {
@@ -189,8 +185,8 @@ public class PlayerListener implements Listener {
                 break;
 
             case AMETHYST:
-                // Permanent glowing (purple)
-                player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0));
+                // FIXED: Start persistent glowing effect
+                plugin.getAbilityManager().startAmethystGlowing(player);
                 break;
 
             case EMERALD:

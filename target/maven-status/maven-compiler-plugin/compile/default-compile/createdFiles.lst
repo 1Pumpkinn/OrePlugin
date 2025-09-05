@@ -20,6 +20,7 @@ hs\orePlugin\OreConfigs.class
 hs\orePlugin\OreItemListener.class
 hs\orePlugin\AbilityManager.class
 hs\orePlugin\PlayerListener$2.class
+hs\orePlugin\AbilityManager$9.class
 hs\orePlugin\OreAbilitiesCommand$1.class
 hs\orePlugin\OreItemListener$1.class
 hs\orePlugin\PlayerDataManager.class
