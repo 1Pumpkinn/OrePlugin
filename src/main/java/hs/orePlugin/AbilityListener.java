@@ -15,6 +15,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Slime;
 import org.bukkit.entity.Bee;
+import org.bukkit.entity.FallingBlock;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.Material;
 import org.bukkit.potion.PotionEffect;
@@ -24,6 +25,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.Location;
+import org.bukkit.block.Block;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -34,6 +36,7 @@ public class AbilityListener implements Listener {
     private final OreAbilitiesPlugin plugin;
     private final Random random = new Random();
     private final Map<UUID, Long> lastWaterDamageTime = new HashMap<>();
+    private final Map<UUID, BukkitRunnable> copperArmorTasks = new HashMap<>();
 
     public AbilityListener(OreAbilitiesPlugin plugin) {
         this.plugin = plugin;
@@ -73,14 +76,19 @@ public class AbilityListener implements Listener {
 
             case COPPER:
                 if (abilityManager.hasActiveEffect(attacker) && event.getEntity() instanceof LivingEntity) {
-                    // Strike lightning but prevent damage to the copper user
                     Location strikeLocation = event.getEntity().getLocation();
                     event.getEntity().getWorld().strikeLightning(strikeLocation);
 
-                    // If the attacker is near the lightning, protect them
-                    if (attacker.getLocation().distance(strikeLocation) < 5) {
-                        // Give temporary fire resistance to prevent lightning damage
-                        attacker.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 40, 0));
+                    // FIXED: Better lightning protection for copper user
+                    if (attacker.getLocation().distance(strikeLocation) < 10) {
+                        // Cancel any lightning damage to the copper user
+                        new BukkitRunnable() {
+                            @Override
+                            public void run() {
+                                attacker.setFireTicks(0); // Remove fire
+                                attacker.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 60, 0));
+                            }
+                        }.runTaskLater(plugin, 1);
                     }
                 }
                 break;
@@ -98,8 +106,8 @@ public class AbilityListener implements Listener {
             case REDSTONE:
                 if (abilityManager.hasActiveEffect(attacker) && event.getEntity() instanceof Player) {
                     Player target = (Player) event.getEntity();
-                    // Fixed: Use JUMP_BOOST with negative amplifier to prevent jumping
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 200, -10, false, false));
+                    // FIXED: Better jump prevention - use higher negative amplifier
+                    target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 200, -128, false, false));
                     target.sendMessage("§4You cannot jump for 10 seconds!");
                     attacker.sendMessage("§cSticky Slime effect applied to " + target.getName() + "!");
 
@@ -137,19 +145,10 @@ public class AbilityListener implements Listener {
 
         switch (oreType) {
             case COAL:
-                // Fixed: Check if player is in water and apply damage
-                if (player.isInWater() && event.getCause() != EntityDamageEvent.DamageCause.FIRE) {
-                    UUID uuid = player.getUniqueId();
-                    long currentTime = System.currentTimeMillis();
-
-                    // Prevent spam damage - only damage every 2 seconds while in water
-                    if (!lastWaterDamageTime.containsKey(uuid) ||
-                            currentTime - lastWaterDamageTime.get(uuid) > 2000) {
-
-                        player.damage(2.0);
-                        player.sendMessage("§8Coal curse! Water burns you!");
-                        lastWaterDamageTime.put(uuid, currentTime);
-                    }
+                // FIXED: Water damage only when player is actually in water
+                if (event.getCause() == EntityDamageEvent.DamageCause.CUSTOM && player.isInWater()) {
+                    // This will be handled in PlayerMoveEvent
+                    return;
                 }
                 break;
 
@@ -161,10 +160,10 @@ public class AbilityListener implements Listener {
                         player.sendMessage("§cRedstone weakness to " + damageEvent.getDamager().getType().name().toLowerCase() + "!");
                     }
                 }
-                // Fixed: Dripstone damage prevention
-                if (event.getCause() == EntityDamageEvent.DamageCause.FALLING_BLOCK ||
-                        event.getCause() == EntityDamageEvent.DamageCause.STAGMITE) {
+                // FIXED: Better dripstone/stalactite damage prevention
+                if (isDripstoneOrStalactiteDamage(event)) {
                     event.setCancelled(true);
+                    player.sendMessage("§4Redstone protection from dripstone/stalactite!");
                 }
                 break;
 
@@ -172,6 +171,14 @@ public class AbilityListener implements Listener {
                 if (abilityManager.hasActiveEffect(player)) {
                     event.setCancelled(true);
                     player.setVelocity(player.getVelocity().multiply(0));
+                }
+                break;
+
+            case COPPER:
+                // FIXED: Prevent lightning damage to copper users
+                if (event.getCause() == EntityDamageEvent.DamageCause.LIGHTNING) {
+                    event.setCancelled(true);
+                    player.sendMessage("§3Copper protection from lightning!");
                 }
                 break;
         }
@@ -184,11 +191,66 @@ public class AbilityListener implements Listener {
         OreType oreType = dataManager.getPlayerOre(player);
 
         if (oreType == OreType.COAL) {
-            // Check if player moved out of water to reset damage timer
-            if (!player.isInWater()) {
-                lastWaterDamageTime.remove(player.getUniqueId());
+            handleCoalWaterDamage(player);
+        }
+    }
+
+    // FIXED: Proper coal water damage handling
+    private void handleCoalWaterDamage(Player player) {
+        if (player.isInWater()) {
+            UUID uuid = player.getUniqueId();
+            long currentTime = System.currentTimeMillis();
+            OreConfigs configs = plugin.getOreConfigs();
+
+            int damageInterval = configs != null ? configs.getCoalWaterDamageInterval() : 2000;
+
+            if (!lastWaterDamageTime.containsKey(uuid) ||
+                    currentTime - lastWaterDamageTime.get(uuid) > damageInterval) {
+
+                double damage = configs != null ? configs.getCoalWaterDamage() : 2.0;
+                player.damage(damage);
+                player.sendMessage("§8Coal curse! Water burns you!");
+                player.playSound(player.getLocation(), Sound.BLOCK_LAVA_EXTINGUISH, 1.0f, 1.5f);
+                lastWaterDamageTime.put(uuid, currentTime);
+            }
+        } else {
+            // Reset timer when not in water
+            lastWaterDamageTime.remove(player.getUniqueId());
+        }
+    }
+
+    // FIXED: Better method to detect dripstone damage
+    private boolean isDripstoneOrStalactiteDamage(EntityDamageEvent event) {
+        // Check for falling block damage (dripstone)
+        if (event.getCause() == EntityDamageEvent.DamageCause.FALLING_BLOCK) {
+            if (event instanceof EntityDamageByEntityEvent) {
+                EntityDamageByEntityEvent fbEvent = (EntityDamageByEntityEvent) event;
+                if (fbEvent.getDamager() instanceof FallingBlock) {
+                    FallingBlock fb = (FallingBlock) fbEvent.getDamager();
+                    return fb.getBlockData().getMaterial() == Material.POINTED_DRIPSTONE;
+                }
+            }
+            return true; // Assume all falling block damage for redstone protection
+        }
+
+        // Check for contact damage with dripstone
+        if (event.getCause() == EntityDamageEvent.DamageCause.CONTACT) {
+            Player player = (Player) event.getEntity();
+            Location loc = player.getLocation();
+            // Check surrounding blocks for dripstone
+            for (int x = -1; x <= 1; x++) {
+                for (int y = -1; y <= 2; y++) {
+                    for (int z = -1; z <= 1; z++) {
+                        Block block = loc.clone().add(x, y, z).getBlock();
+                        if (block.getType() == Material.POINTED_DRIPSTONE) {
+                            return true;
+                        }
+                    }
+                }
             }
         }
+
+        return false;
     }
 
     @EventHandler
@@ -262,44 +324,55 @@ public class AbilityListener implements Listener {
             return;
         }
 
-        // Handle gold ore curse for tools/weapons/armor crafting - FIXED
+        // FIXED: Handle gold ore curse for tools/weapons/armor crafting
         if (currentOreType == OreType.GOLD && isToolWeaponOrArmor(result.getType())) {
             new BukkitRunnable() {
                 @Override
                 public void run() {
-                    // Check all inventory slots for the newly crafted item
-                    ItemStack[] contents = player.getInventory().getContents();
-                    for (int i = 0; i < contents.length; i++) {
-                        ItemStack item = contents[i];
-                        if (item != null && item.getType() == result.getType()) {
-                            // Randomize durability from 1 to max durability
-                            short maxDurability = item.getType().getMaxDurability();
-                            if (maxDurability > 0) {
-                                int randomDurability = random.nextInt(100) + 1;
-                                short newDurability = (short) Math.min(randomDurability, maxDurability);
-                                item.setDurability((short) (maxDurability - newDurability));
-                                player.sendMessage("§6Gold curse! Item durability randomized to " + newDurability + "/" + maxDurability + "!");
-                                break;
-                            }
-                        }
-                    }
+                    // Apply gold curse to newly crafted items
+                    applyGoldCurse(player, result.getType());
                 }
             }.runTaskLater(plugin, 2);
+        }
+    }
+
+    // FIXED: Better gold curse implementation
+    private void applyGoldCurse(Player player, Material itemType) {
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int i = 0; i < contents.length; i++) {
+            ItemStack item = contents[i];
+            if (item != null && item.getType() == itemType) {
+                short maxDurability = item.getType().getMaxDurability();
+                if (maxDurability > 0) {
+                    // Randomize durability between 10% and 90% of max
+                    int minDurability = (int) (maxDurability * 0.1);
+                    int maxRandomDurability = (int) (maxDurability * 0.9);
+                    int randomDurability = random.nextInt(maxRandomDurability - minDurability) + minDurability;
+
+                    short damageValue = (short) (maxDurability - randomDurability);
+                    item.setDurability(damageValue);
+
+                    player.sendMessage("§6Gold curse! Item durability set to " + randomDurability + "/" + maxDurability + "!");
+                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_PLACE, 1.0f, 0.8f);
+                    break;
+                }
+            }
         }
     }
 
     private void applyOreTypeEffects(Player player, OreType oreType) {
         switch (oreType) {
             case IRON:
-                // Apply +2 armor bonus - FIXED to work properly
+                // FIXED: Apply +2 armor bonus properly
                 AttributeInstance armorAttribute = player.getAttribute(Attribute.ARMOR);
                 if (armorAttribute != null) {
-                    armorAttribute.setBaseValue(armorAttribute.getBaseValue() + 2);
+                    double currentBase = armorAttribute.getBaseValue();
+                    armorAttribute.setBaseValue(currentBase + 2);
                 }
                 plugin.getPlayerDataManager().setIronDropTimer(player);
                 break;
             case AMETHYST:
-                // Apply permanent glowing - FIXED
+                // FIXED: Apply permanent glowing
                 player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0, false, false));
                 break;
             case EMERALD:
@@ -307,7 +380,7 @@ public class AbilityListener implements Listener {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9, false, false));
                 break;
             case COPPER:
-                // Apply armor durability curse - FIXED
+                // FIXED: Apply armor durability curse
                 startArmorDurabilityTimer(player);
                 break;
             case STONE:
@@ -322,10 +395,11 @@ public class AbilityListener implements Listener {
     private void removeOreTypeEffects(Player player, OreType oreType) {
         switch (oreType) {
             case IRON:
-                // Reset armor attribute - FIXED
+                // FIXED: Reset armor attribute properly
                 AttributeInstance armorAttribute = player.getAttribute(Attribute.ARMOR);
                 if (armorAttribute != null) {
-                    armorAttribute.setBaseValue(Math.max(0, armorAttribute.getBaseValue() - 2));
+                    double currentBase = armorAttribute.getBaseValue();
+                    armorAttribute.setBaseValue(Math.max(0, currentBase - 2));
                 }
                 break;
             case AMETHYST:
@@ -348,35 +422,56 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // FIXED: Copper armor durability curse
+    // FIXED: Copper armor durability curse with proper cleanup
     private void startArmorDurabilityTimer(Player player) {
-        new BukkitRunnable() {
+        // Stop any existing timer first
+        stopArmorDurabilityTimer(player);
+
+        OreConfigs configs = plugin.getOreConfigs();
+        int damageInterval = configs != null ? configs.getCopperArmorDamageInterval() : 100;
+        double multiplier = configs != null ? configs.getCopperArmorDurabilityMultiplier() : 2.0;
+
+        BukkitRunnable task = new BukkitRunnable() {
             @Override
             public void run() {
                 PlayerDataManager dataManager = plugin.getPlayerDataManager();
                 if (dataManager.getPlayerOre(player) != OreType.COPPER || !player.isOnline()) {
                     cancel();
+                    copperArmorTasks.remove(player.getUniqueId());
                     return;
                 }
 
                 // Damage armor pieces
                 ItemStack[] armorContents = player.getInventory().getArmorContents();
+                boolean armorDamaged = false;
+
                 for (ItemStack armor : armorContents) {
                     if (armor != null && armor.getType() != Material.AIR) {
                         short maxDurability = armor.getType().getMaxDurability();
                         if (maxDurability > 0) {
                             short currentDurability = armor.getDurability();
-                            armor.setDurability((short) Math.min(maxDurability, currentDurability + 2)); // 2x faster wear
+                            int damageToApply = (int) Math.ceil(multiplier);
+                            armor.setDurability((short) Math.min(maxDurability, currentDurability + damageToApply));
+                            armorDamaged = true;
                         }
                     }
                 }
-                player.getInventory().setArmorContents(armorContents);
+
+                if (armorDamaged) {
+                    player.getInventory().setArmorContents(armorContents);
+                }
             }
-        }.runTaskTimer(plugin, 20, 100); // Check every 5 seconds
+        };
+
+        task.runTaskTimer(plugin, damageInterval, damageInterval);
+        copperArmorTasks.put(player.getUniqueId(), task);
     }
 
     private void stopArmorDurabilityTimer(Player player) {
-        // Timer will stop automatically when ore type changes
+        BukkitRunnable task = copperArmorTasks.remove(player.getUniqueId());
+        if (task != null) {
+            task.cancel();
+        }
     }
 
     private String getOreColor(OreType oreType) {
@@ -471,5 +566,11 @@ public class AbilityListener implements Listener {
                 name.contains("_HOE") || name.contains("_HELMET") ||
                 name.contains("_CHESTPLATE") || name.contains("_LEGGINGS") ||
                 name.contains("_BOOTS");
+    }
+
+    // Cleanup method for player logout
+    public void cleanup(Player player) {
+        lastWaterDamageTime.remove(player.getUniqueId());
+        stopArmorDurabilityTimer(player);
     }
 }

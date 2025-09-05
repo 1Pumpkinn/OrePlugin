@@ -15,6 +15,7 @@ public class OreAbilitiesPlugin extends JavaPlugin {
     private ActionBarManager actionBarManager;
     private AbilityActivationManager activationManager;
     private RecipeManager recipeManager;
+    private OreConfigs oreConfigs;
     private File playerDataFile;
     private FileConfiguration playerDataConfig;
 
@@ -29,6 +30,7 @@ public class OreAbilitiesPlugin extends JavaPlugin {
 
         saveDefaultConfig();
         setupPlayerDataFile();
+        this.oreConfigs = new OreConfigs(this);
 
         // Initialize managers
         playerDataManager = new PlayerDataManager(this);
@@ -104,10 +106,15 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         }
     }
 
+    public OreConfigs getOreConfigs() {
+        return oreConfigs;
+    }
+
     private int getRecipeCount() {
         // Count of craftable ore types
         return 10; // Coal, Copper, Iron, Gold, Redstone, Lapis, Emerald, Amethyst, Diamond, Netherite
     }
+
 
     // Reload method for admin commands
     public void reloadPlugin() {

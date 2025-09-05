@@ -162,7 +162,7 @@ public class AbilityManager {
     }
 
     private void copperAbility(Player player) {
-        // Auto-enchant held trident with Channeling
+        // FIXED: Auto-enchant held trident with Channeling (moved to ability start)
         ItemStack handItem = player.getInventory().getItemInMainHand();
         if (handItem != null && handItem.getType() == Material.TRIDENT) {
             ItemMeta meta = handItem.getItemMeta();
@@ -170,6 +170,7 @@ public class AbilityManager {
                 meta.addEnchant(Enchantment.CHANNELING, 1, true);
                 handItem.setItemMeta(meta);
                 player.sendMessage("§3Your trident has been enchanted with Channeling!");
+                player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1.0f, 1.2f);
             }
         }
 
@@ -208,6 +209,31 @@ public class AbilityManager {
         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 200, 2)); // Speed 3 for 10s
         player.sendMessage("§eGoldrush activated! Haste 5 and Speed 3 for 10 seconds!");
         player.playSound(player.getLocation(), Sound.BLOCK_METAL_BREAK, 1.0f, 1.0f);
+
+        // FIXED: Add additional gold downside - random item durability loss
+        addGoldDownside(player);
+    }
+
+    // FIXED: Additional gold downside
+    private void addGoldDownside(Player player) {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                ItemStack[] inventory = player.getInventory().getContents();
+                for (ItemStack item : inventory) {
+                    if (item != null && item.getType() != Material.AIR) {
+                        short maxDurability = item.getType().getMaxDurability();
+                        if (maxDurability > 0 && random.nextDouble() < 0.3) { // 30% chance per item
+                            short currentDurability = item.getDurability();
+                            int damageToAdd = random.nextInt(20) + 10; // 10-30 durability damage
+                            item.setDurability((short) Math.min(maxDurability, currentDurability + damageToAdd));
+                        }
+                    }
+                }
+                player.sendMessage("§6Gold curse! Some items lost durability!");
+                player.playSound(player.getLocation(), Sound.ENTITY_ITEM_BREAK, 0.8f, 0.8f);
+            }
+        }.runTaskLater(plugin, 100); // 5 seconds after ability activation
     }
 
     private void redstoneAbility(Player player) {
@@ -254,9 +280,10 @@ public class AbilityManager {
 
     private void amethystAbility(Player player) {
         activeEffects.put(player.getUniqueId(), true);
-        // Add slowness 3 to prevent knockback movement
+        // FIXED: Add slowness 3 (amplifier 2 = level 3) and glowing during ability
         player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 200, 2)); // Slowness 3 for 10s
-        player.sendMessage("§dCrystal Cluster activated! No knockback and no damage for 10 seconds!");
+        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 200, 0)); // Extra glowing during ability
+        player.sendMessage("§dCrystal Cluster activated! No knockback, no damage, slowness 3, and extra glow for 10 seconds!");
         player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.0f);
 
         new BukkitRunnable() {
@@ -264,6 +291,7 @@ public class AbilityManager {
             public void run() {
                 activeEffects.remove(player.getUniqueId());
                 player.removePotionEffect(PotionEffectType.SLOWNESS);
+                // Don't remove glowing as amethyst has permanent glowing
                 player.sendMessage("§5Crystal Cluster effect ended.");
             }
         }.runTaskLater(plugin, 200); // 10 seconds
@@ -316,6 +344,11 @@ public class AbilityManager {
         return copperLightningActive.getOrDefault(player.getUniqueId(), false);
     }
 
+    // FIXED: Add method to remove active effects (used by redstone ability)
+    public void removeActiveEffect(Player player) {
+        activeEffects.remove(player.getUniqueId());
+    }
+
     private Material getSmeltResult(Material input) {
         switch (input) {
             case IRON_ORE: case DEEPSLATE_IRON_ORE: return Material.IRON_INGOT;
@@ -326,6 +359,10 @@ public class AbilityManager {
             case RAW_IRON: return Material.IRON_INGOT;
             case RAW_GOLD: return Material.GOLD_INGOT;
             case RAW_COPPER: return Material.COPPER_INGOT;
+            case CLAY_BALL: return Material.BRICK;
+            case WET_SPONGE: return Material.SPONGE;
+            case CACTUS: return Material.GREEN_DYE;
+            case KELP: return Material.DRIED_KELP;
             default: return null;
         }
     }
@@ -343,5 +380,12 @@ public class AbilityManager {
             case DIAMOND_BOOTS: return Material.NETHERITE_BOOTS;
             default: return null;
         }
+    }
+
+    // Cleanup method for plugin disable/player logout
+    public void cleanup(Player player) {
+        UUID uuid = player.getUniqueId();
+        activeEffects.remove(uuid);
+        copperLightningActive.remove(uuid);
     }
 }
