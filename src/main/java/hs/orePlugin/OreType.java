@@ -10,7 +10,7 @@ public enum OreType {
     COAL("Coal", false, 10),
     COPPER("Copper", false, 45),
     IRON("Iron", false, 45),
-    GOLD("Gold", false, 75),
+    GOLD("Gold", false, 120), // Updated cooldown from 75 to 120
     REDSTONE("Redstone", false, 80),
     LAPIS("Lapis", false, 240),
     EMERALD("Emerald", false, 270),
@@ -20,12 +20,12 @@ public enum OreType {
 
     private final String displayName;
     private final boolean isStarter;
-    private final int cooldown; // in seconds
+    private final int defaultCooldown; // Default cooldown, can be overridden by config
 
-    OreType(String displayName, boolean isStarter, int cooldown) {
+    OreType(String displayName, boolean isStarter, int defaultCooldown) {
         this.displayName = displayName;
         this.isStarter = isStarter;
-        this.cooldown = cooldown;
+        this.defaultCooldown = defaultCooldown;
     }
 
     public String getDisplayName() {
@@ -37,7 +37,11 @@ public enum OreType {
     }
 
     public int getCooldown() {
-        return cooldown;
+        return defaultCooldown;
+    }
+
+    public int getCooldown(OreConfigs configs) {
+        return configs != null ? configs.getCooldown(this) : defaultCooldown;
     }
 
     public static OreType[] getStarterOres() {

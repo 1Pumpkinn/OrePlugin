@@ -37,7 +37,7 @@ cooldowns:
   coal: 10
   copper: 45
   iron: 45
-  gold: 75
+  gold: 120  # Updated from 75 to 120 seconds
   redstone: 80
   lapis: 240
   emerald: 270
@@ -78,6 +78,22 @@ effects:
     # Show progress bar for cooldowns
     show-progress-bar: true
 
+# Copper Ore Settings
+copper:
+  # Armor durability multiplier (how much faster armor breaks)
+  armor-durability-multiplier: 2.0
+
+  # How often to check and damage armor (in ticks, 20 = 1 second)
+  armor-damage-interval: 100
+
+# Coal Ore Settings
+coal:
+  # Water damage amount per tick
+  water-damage: 2.0
+
+  # Damage interval while in water (in milliseconds)
+  water-damage-interval: 2000
+
 # Messages (can be customized)
 messages:
   no-permission: "&cYou don't have permission to use this command!"
@@ -86,3 +102,8 @@ messages:
   ability-ready: "&aAbility ready! Right-click to use."
   ore-assigned: "&6You have been assigned the {ore} ore type!"
   ore-shattered: "&cThe ore shattered during crafting!"
+  coal-water-damage: "&8Coal curse! Water burns you!"
+  copper-lightning-protection: "&3Copper protection from lightning!"
+  redstone-jump-prevent: "&4You cannot jump for 10 seconds!"
+  amethyst-crystal-mode: "&dCrystal mode activated - No damage or knockback!"
+  gold-durability-curse: "&6Gold curse! Item durability randomized!"

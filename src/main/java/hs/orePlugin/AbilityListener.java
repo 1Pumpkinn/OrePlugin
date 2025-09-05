@@ -10,6 +10,7 @@ import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerExpChangeEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Slime;
@@ -20,12 +21,19 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.Sound;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.Location;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.Random;
 
 public class AbilityListener implements Listener {
 
     private final OreAbilitiesPlugin plugin;
     private final Random random = new Random();
+    private final Map<UUID, Long> lastWaterDamageTime = new HashMap<>();
 
     public AbilityListener(OreAbilitiesPlugin plugin) {
         this.plugin = plugin;
@@ -65,7 +73,15 @@ public class AbilityListener implements Listener {
 
             case COPPER:
                 if (abilityManager.hasActiveEffect(attacker) && event.getEntity() instanceof LivingEntity) {
-                    event.getEntity().getWorld().strikeLightning(event.getEntity().getLocation());
+                    // Strike lightning but prevent damage to the copper user
+                    Location strikeLocation = event.getEntity().getLocation();
+                    event.getEntity().getWorld().strikeLightning(strikeLocation);
+
+                    // If the attacker is near the lightning, protect them
+                    if (attacker.getLocation().distance(strikeLocation) < 5) {
+                        // Give temporary fire resistance to prevent lightning damage
+                        attacker.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 40, 0));
+                    }
                 }
                 break;
 
@@ -82,9 +98,13 @@ public class AbilityListener implements Listener {
             case REDSTONE:
                 if (abilityManager.hasActiveEffect(attacker) && event.getEntity() instanceof Player) {
                     Player target = (Player) event.getEntity();
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 200, -10));
+                    // Fixed: Use JUMP_BOOST with negative amplifier to prevent jumping
+                    target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 200, -10, false, false));
                     target.sendMessage("§4You cannot jump for 10 seconds!");
                     attacker.sendMessage("§cSticky Slime effect applied to " + target.getName() + "!");
+
+                    // Remove the active effect after use
+                    plugin.getAbilityManager().removeActiveEffect(attacker);
                 }
                 break;
 
@@ -117,9 +137,19 @@ public class AbilityListener implements Listener {
 
         switch (oreType) {
             case COAL:
-                if (event.getCause() == EntityDamageEvent.DamageCause.DROWNING ||
-                        (player.isInWater() && event.getCause() != EntityDamageEvent.DamageCause.FIRE)) {
-                    event.setDamage(event.getDamage() + 2);
+                // Fixed: Check if player is in water and apply damage
+                if (player.isInWater() && event.getCause() != EntityDamageEvent.DamageCause.FIRE) {
+                    UUID uuid = player.getUniqueId();
+                    long currentTime = System.currentTimeMillis();
+
+                    // Prevent spam damage - only damage every 2 seconds while in water
+                    if (!lastWaterDamageTime.containsKey(uuid) ||
+                            currentTime - lastWaterDamageTime.get(uuid) > 2000) {
+
+                        player.damage(2.0);
+                        player.sendMessage("§8Coal curse! Water burns you!");
+                        lastWaterDamageTime.put(uuid, currentTime);
+                    }
                 }
                 break;
 
@@ -131,7 +161,9 @@ public class AbilityListener implements Listener {
                         player.sendMessage("§cRedstone weakness to " + damageEvent.getDamager().getType().name().toLowerCase() + "!");
                     }
                 }
-                if (event.getCause() == EntityDamageEvent.DamageCause.FALLING_BLOCK) {
+                // Fixed: Dripstone damage prevention
+                if (event.getCause() == EntityDamageEvent.DamageCause.FALLING_BLOCK ||
+                        event.getCause() == EntityDamageEvent.DamageCause.STAGMITE) {
                     event.setCancelled(true);
                 }
                 break;
@@ -146,11 +178,26 @@ public class AbilityListener implements Listener {
     }
 
     @EventHandler
+    public void onPlayerMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        OreType oreType = dataManager.getPlayerOre(player);
+
+        if (oreType == OreType.COAL) {
+            // Check if player moved out of water to reset damage timer
+            if (!player.isInWater()) {
+                lastWaterDamageTime.remove(player.getUniqueId());
+            }
+        }
+    }
+
+    @EventHandler
     public void onCraftItem(CraftItemEvent event) {
         if (!(event.getWhoClicked() instanceof Player)) return;
 
         Player player = (Player) event.getWhoClicked();
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        OreConfigs configs = plugin.getOreConfigs();
         OreType currentOreType = dataManager.getPlayerOre(player);
 
         ItemStack result = event.getRecipe().getResult();
@@ -173,8 +220,9 @@ public class AbilityListener implements Listener {
                 return;
             }
 
-            // 25% chance to shatter
-            if (random.nextDouble() < 0.25) {
+            // Use config-based shatter chance
+            double shatterChance = configs != null ? configs.getShatterChance() : 0.25;
+            if (random.nextDouble() < shatterChance) {
                 event.setCancelled(true);
                 player.sendMessage("§cThe " + newOreType.getDisplayName() + " ore mastery shattered during crafting!");
                 player.sendMessage("§7Try again - you might get lucky next time!");
@@ -201,7 +249,10 @@ public class AbilityListener implements Listener {
             String oreColor = getOreColor(newOreType);
             player.sendMessage("§a✓ Successfully mastered the " + oreColor + newOreType.getDisplayName() + " §aore!");
             player.sendMessage("§7Your new ability: §6" + getAbilityName(newOreType));
-            player.sendMessage("§7Cooldown: §b" + newOreType.getCooldown() + " seconds");
+
+            // Use config-based cooldown in message
+            int cooldown = configs != null ? configs.getCooldown(newOreType) : newOreType.getCooldown();
+            player.sendMessage("§7Cooldown: §b" + cooldown + " seconds");
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
 
             // Update action bar to show new ore type
@@ -211,37 +262,53 @@ public class AbilityListener implements Listener {
             return;
         }
 
-        // Handle gold ore curse for tools/weapons/armor crafting
+        // Handle gold ore curse for tools/weapons/armor crafting - FIXED
         if (currentOreType == OreType.GOLD && isToolWeaponOrArmor(result.getType())) {
             new BukkitRunnable() {
                 @Override
                 public void run() {
-                    ItemStack item = player.getInventory().getItemInMainHand();
-                    if (item.getType() == result.getType()) {
-                        int randomDurability = random.nextInt(100) + 1;
-                        item.setDurability((short) (item.getType().getMaxDurability() - randomDurability));
-                        player.sendMessage("§6Gold curse! Item durability randomized!");
+                    // Check all inventory slots for the newly crafted item
+                    ItemStack[] contents = player.getInventory().getContents();
+                    for (int i = 0; i < contents.length; i++) {
+                        ItemStack item = contents[i];
+                        if (item != null && item.getType() == result.getType()) {
+                            // Randomize durability from 1 to max durability
+                            short maxDurability = item.getType().getMaxDurability();
+                            if (maxDurability > 0) {
+                                int randomDurability = random.nextInt(100) + 1;
+                                short newDurability = (short) Math.min(randomDurability, maxDurability);
+                                item.setDurability((short) (maxDurability - newDurability));
+                                player.sendMessage("§6Gold curse! Item durability randomized to " + newDurability + "/" + maxDurability + "!");
+                                break;
+                            }
+                        }
                     }
                 }
-            }.runTaskLater(plugin, 1);
+            }.runTaskLater(plugin, 2);
         }
     }
 
     private void applyOreTypeEffects(Player player, OreType oreType) {
         switch (oreType) {
             case IRON:
-                // Apply +2 armor bonus
-                if (player.getAttribute(org.bukkit.attribute.Attribute.ARMOR) != null) {
-                    double currentBase = player.getAttribute(org.bukkit.attribute.Attribute.ARMOR).getBaseValue();
-                    player.getAttribute(org.bukkit.attribute.Attribute.ARMOR).setBaseValue(currentBase + 2);
+                // Apply +2 armor bonus - FIXED to work properly
+                AttributeInstance armorAttribute = player.getAttribute(Attribute.ARMOR);
+                if (armorAttribute != null) {
+                    armorAttribute.setBaseValue(armorAttribute.getBaseValue() + 2);
                 }
                 plugin.getPlayerDataManager().setIronDropTimer(player);
                 break;
             case AMETHYST:
-                player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0));
+                // Apply permanent glowing - FIXED
+                player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0, false, false));
                 break;
             case EMERALD:
-                player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9));
+                // Infinite hero of the village
+                player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9, false, false));
+                break;
+            case COPPER:
+                // Apply armor durability curse - FIXED
+                startArmorDurabilityTimer(player);
                 break;
             case STONE:
                 // Stone effects are handled in PlayerListener based on movement
@@ -255,9 +322,10 @@ public class AbilityListener implements Listener {
     private void removeOreTypeEffects(Player player, OreType oreType) {
         switch (oreType) {
             case IRON:
-                // Reset armor attribute
-                if (player.getAttribute(org.bukkit.attribute.Attribute.ARMOR) != null) {
-                    player.getAttribute(org.bukkit.attribute.Attribute.ARMOR).setBaseValue(0);
+                // Reset armor attribute - FIXED
+                AttributeInstance armorAttribute = player.getAttribute(Attribute.ARMOR);
+                if (armorAttribute != null) {
+                    armorAttribute.setBaseValue(Math.max(0, armorAttribute.getBaseValue() - 2));
                 }
                 break;
             case AMETHYST:
@@ -265,6 +333,10 @@ public class AbilityListener implements Listener {
                 break;
             case EMERALD:
                 player.removePotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE);
+                break;
+            case COPPER:
+                // Stop armor durability timer
+                stopArmorDurabilityTimer(player);
                 break;
             case STONE:
                 player.removePotionEffect(PotionEffectType.REGENERATION);
@@ -274,6 +346,37 @@ public class AbilityListener implements Listener {
                 player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
                 break;
         }
+    }
+
+    // FIXED: Copper armor durability curse
+    private void startArmorDurabilityTimer(Player player) {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                PlayerDataManager dataManager = plugin.getPlayerDataManager();
+                if (dataManager.getPlayerOre(player) != OreType.COPPER || !player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                // Damage armor pieces
+                ItemStack[] armorContents = player.getInventory().getArmorContents();
+                for (ItemStack armor : armorContents) {
+                    if (armor != null && armor.getType() != Material.AIR) {
+                        short maxDurability = armor.getType().getMaxDurability();
+                        if (maxDurability > 0) {
+                            short currentDurability = armor.getDurability();
+                            armor.setDurability((short) Math.min(maxDurability, currentDurability + 2)); // 2x faster wear
+                        }
+                    }
+                }
+                player.getInventory().setArmorContents(armorContents);
+            }
+        }.runTaskTimer(plugin, 20, 100); // Check every 5 seconds
+    }
+
+    private void stopArmorDurabilityTimer(Player player) {
+        // Timer will stop automatically when ore type changes
     }
 
     private String getOreColor(OreType oreType) {
@@ -324,6 +427,7 @@ public class AbilityListener implements Listener {
 
         if (oreType == OreType.LAPIS && event.getInventory().getType().name().contains("ANVIL")) {
             if (event.getSlot() == 2) { // Result slot
+                event.setCancelled(true);
                 player.sendMessage("§cLapis prevents you from using levels with anvils!");
             }
         }

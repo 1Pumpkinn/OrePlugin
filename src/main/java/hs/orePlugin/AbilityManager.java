@@ -8,10 +8,8 @@ import org.bukkit.Material;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.attribute.Attribute;
-import org.bukkit.attribute.AttributeModifier;
-import org.bukkit.attribute.AttributeInstance;
-import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.inventory.meta.ItemMeta;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -21,6 +19,7 @@ public class AbilityManager {
 
     private final OreAbilitiesPlugin plugin;
     private final Map<UUID, Boolean> activeEffects = new HashMap<>();
+    private final Map<UUID, Boolean> copperLightningActive = new HashMap<>();
     private final Random random = new Random();
 
     public AbilityManager(OreAbilitiesPlugin plugin) {
@@ -29,21 +28,35 @@ public class AbilityManager {
 
     public boolean useAbility(Player player) {
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        OreConfigs configs = plugin.getOreConfigs();
 
         if (dataManager.isOnCooldown(player)) {
             long remaining = dataManager.getRemainingCooldown(player);
-            player.sendMessage("§cAbility on cooldown! " + remaining + " seconds remaining.");
+            String message = configs != null ? configs.getMessage("ability-on-cooldown", "time", String.valueOf(remaining))
+                    : "§cAbility on cooldown! " + remaining + " seconds remaining.";
+            player.sendMessage(message);
             return false;
         }
 
         OreType oreType = dataManager.getPlayerOre(player);
         if (oreType == null) {
-            player.sendMessage("§cYou don't have an ore type assigned!");
+            String message = configs != null ? configs.getMessage("no-ore-type")
+                    : "§cYou don't have an ore type assigned!";
+            player.sendMessage(message);
+            return false;
+        }
+
+        // Check if ore type is enabled
+        if (configs != null && !configs.isOreEnabled(oreType)) {
+            player.sendMessage("§cThis ore type is currently disabled!");
             return false;
         }
 
         executeAbility(player, oreType);
-        dataManager.setCooldown(player, oreType.getCooldown());
+
+        // Use config-based cooldown
+        int cooldown = configs != null ? configs.getCooldown(oreType) : oreType.getCooldown();
+        dataManager.setCooldown(player, cooldown);
 
         // Update action bar immediately
         plugin.getActionBarManager().updateCooldownDisplay(player);
@@ -149,6 +162,18 @@ public class AbilityManager {
     }
 
     private void copperAbility(Player player) {
+        // Auto-enchant held trident with Channeling
+        ItemStack handItem = player.getInventory().getItemInMainHand();
+        if (handItem != null && handItem.getType() == Material.TRIDENT) {
+            ItemMeta meta = handItem.getItemMeta();
+            if (meta != null && !meta.hasEnchant(Enchantment.CHANNELING)) {
+                meta.addEnchant(Enchantment.CHANNELING, 1, true);
+                handItem.setItemMeta(meta);
+                player.sendMessage("§3Your trident has been enchanted with Channeling!");
+            }
+        }
+
+        copperLightningActive.put(player.getUniqueId(), true);
         activeEffects.put(player.getUniqueId(), true);
         player.sendMessage("§3Channel The Clouds activated! Lightning strikes on hit for 10 seconds!");
         player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
@@ -156,6 +181,7 @@ public class AbilityManager {
         new BukkitRunnable() {
             @Override
             public void run() {
+                copperLightningActive.remove(player.getUniqueId());
                 activeEffects.remove(player.getUniqueId());
                 player.sendMessage("§bChannel The Clouds effect ended.");
             }
@@ -228,6 +254,8 @@ public class AbilityManager {
 
     private void amethystAbility(Player player) {
         activeEffects.put(player.getUniqueId(), true);
+        // Add slowness 3 to prevent knockback movement
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 200, 2)); // Slowness 3 for 10s
         player.sendMessage("§dCrystal Cluster activated! No knockback and no damage for 10 seconds!");
         player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.0f);
 
@@ -235,6 +263,7 @@ public class AbilityManager {
             @Override
             public void run() {
                 activeEffects.remove(player.getUniqueId());
+                player.removePotionEffect(PotionEffectType.SLOWNESS);
                 player.sendMessage("§5Crystal Cluster effect ended.");
             }
         }.runTaskLater(plugin, 200); // 10 seconds
@@ -281,6 +310,10 @@ public class AbilityManager {
 
     public boolean hasActiveEffect(Player player) {
         return activeEffects.getOrDefault(player.getUniqueId(), false);
+    }
+
+    public boolean hasCopperLightningActive(Player player) {
+        return copperLightningActive.getOrDefault(player.getUniqueId(), false);
     }
 
     private Material getSmeltResult(Material input) {
