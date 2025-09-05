@@ -8,6 +8,7 @@ import org.bukkit.Material;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.meta.ItemMeta;
 import java.util.HashMap;
@@ -20,6 +21,8 @@ public class AbilityManager {
     private final OreAbilitiesPlugin plugin;
     private final Map<UUID, Boolean> activeEffects = new HashMap<>();
     private final Map<UUID, Boolean> copperLightningActive = new HashMap<>();
+    private final Map<UUID, BukkitTask> ironDropTasks = new HashMap<>();
+    private final Map<UUID, BukkitTask> amethystGlowTasks = new HashMap<>();
     private final Random random = new Random();
 
     public AbilityManager(OreAbilitiesPlugin plugin) {
@@ -162,13 +165,15 @@ public class AbilityManager {
     }
 
     private void copperAbility(Player player) {
-        // FIXED: Auto-enchant held trident with Channeling (moved to ability start)
+        // FIXED: Auto-enchant held trident with Channeling at ability start
         ItemStack handItem = player.getInventory().getItemInMainHand();
         if (handItem != null && handItem.getType() == Material.TRIDENT) {
             ItemMeta meta = handItem.getItemMeta();
             if (meta != null && !meta.hasEnchant(Enchantment.CHANNELING)) {
                 meta.addEnchant(Enchantment.CHANNELING, 1, true);
                 handItem.setItemMeta(meta);
+                // Ensure the item is updated in the player's hand
+                player.getInventory().setItemInMainHand(handItem);
                 player.sendMessage("§3Your trident has been enchanted with Channeling!");
                 player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1.0f, 1.2f);
             }
@@ -196,7 +201,7 @@ public class AbilityManager {
         ItemStack bucket = new ItemStack(chosen);
         if (player.getInventory().firstEmpty() != -1) {
             player.getInventory().addItem(bucket);
-            player.sendMessage("§fBucket Roulette! You received a " + chosen.name().toLowerCase() + "!");
+            player.sendMessage("§fBucket Roulette! You received a " + chosen.name().toLowerCase().replace("_", " ") + "!");
             player.playSound(player.getLocation(), Sound.ITEM_BUCKET_FILL, 1.0f, 1.0f);
         } else {
             player.getWorld().dropItemNaturally(player.getLocation(), bucket);
@@ -209,31 +214,6 @@ public class AbilityManager {
         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 200, 2)); // Speed 3 for 10s
         player.sendMessage("§eGoldrush activated! Haste 5 and Speed 3 for 10 seconds!");
         player.playSound(player.getLocation(), Sound.BLOCK_METAL_BREAK, 1.0f, 1.0f);
-
-        // FIXED: Add additional gold downside - random item durability loss
-        addGoldDownside(player);
-    }
-
-    // FIXED: Additional gold downside
-    private void addGoldDownside(Player player) {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                ItemStack[] inventory = player.getInventory().getContents();
-                for (ItemStack item : inventory) {
-                    if (item != null && item.getType() != Material.AIR) {
-                        short maxDurability = item.getType().getMaxDurability();
-                        if (maxDurability > 0 && random.nextDouble() < 0.3) { // 30% chance per item
-                            short currentDurability = item.getDurability();
-                            int damageToAdd = random.nextInt(20) + 10; // 10-30 durability damage
-                            item.setDurability((short) Math.min(maxDurability, currentDurability + damageToAdd));
-                        }
-                    }
-                }
-                player.sendMessage("§6Gold curse! Some items lost durability!");
-                player.playSound(player.getLocation(), Sound.ENTITY_ITEM_BREAK, 0.8f, 0.8f);
-            }
-        }.runTaskLater(plugin, 100); // 5 seconds after ability activation
     }
 
     private void redstoneAbility(Player player) {
@@ -280,18 +260,13 @@ public class AbilityManager {
 
     private void amethystAbility(Player player) {
         activeEffects.put(player.getUniqueId(), true);
-        // FIXED: Add slowness 3 (amplifier 2 = level 3) and glowing during ability
-        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 200, 2)); // Slowness 3 for 10s
-        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 200, 0)); // Extra glowing during ability
-        player.sendMessage("§dCrystal Cluster activated! No knockback, no damage, slowness 3, and extra glow for 10 seconds!");
+        player.sendMessage("§dCrystal Cluster activated! No knockback and no damage for 10 seconds!");
         player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.0f);
 
         new BukkitRunnable() {
             @Override
             public void run() {
                 activeEffects.remove(player.getUniqueId());
-                player.removePotionEffect(PotionEffectType.SLOWNESS);
-                // Don't remove glowing as amethyst has permanent glowing
                 player.sendMessage("§5Crystal Cluster effect ended.");
             }
         }.runTaskLater(plugin, 200); // 10 seconds
@@ -336,6 +311,120 @@ public class AbilityManager {
         player.playSound(player.getLocation(), Sound.UI_STONECUTTER_TAKE_RESULT, 1.0f, 0.5f);
     }
 
+    // FIXED: Iron drop timer implementation
+    public void startIronDropTimer(Player player) {
+        UUID uuid = player.getUniqueId();
+
+        // Cancel existing timer if any
+        if (ironDropTasks.containsKey(uuid)) {
+            ironDropTasks.get(uuid).cancel();
+        }
+
+        BukkitTask task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    cancel();
+                    ironDropTasks.remove(uuid);
+                    return;
+                }
+
+                // Check if player still has iron ore type
+                if (plugin.getPlayerDataManager().getPlayerOre(player) != OreType.IRON) {
+                    cancel();
+                    ironDropTasks.remove(uuid);
+                    return;
+                }
+
+                dropRandomItem(player);
+            }
+        }.runTaskTimer(plugin, 12000L, 12000L); // 10 minutes = 12000 ticks
+
+        ironDropTasks.put(uuid, task);
+    }
+
+    public void cancelIronDropTimer(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (ironDropTasks.containsKey(uuid)) {
+            ironDropTasks.get(uuid).cancel();
+            ironDropTasks.remove(uuid);
+        }
+    }
+
+    private void dropRandomItem(Player player) {
+        ItemStack[] inventory = player.getInventory().getContents();
+        java.util.List<Integer> validSlots = new java.util.ArrayList<>();
+
+        // Find slots with items
+        for (int i = 0; i < inventory.length; i++) {
+            if (inventory[i] != null && inventory[i].getType() != Material.AIR) {
+                validSlots.add(i);
+            }
+        }
+
+        if (validSlots.isEmpty()) {
+            return; // No items to drop
+        }
+
+        // Pick random slot and drop the item
+        int randomSlot = validSlots.get(random.nextInt(validSlots.size()));
+        ItemStack itemToDrop = inventory[randomSlot];
+
+        player.getWorld().dropItemNaturally(player.getLocation(), itemToDrop);
+        player.getInventory().setItem(randomSlot, null);
+
+        player.sendMessage("§c⚠ Iron curse! A random item dropped from your inventory!");
+        player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1.0f, 0.5f);
+    }
+
+    // FIXED: Amethyst permanent glowing implementation
+    public void startAmethystGlowing(Player player) {
+        UUID uuid = player.getUniqueId();
+
+        // Apply initial glowing effect
+        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0));
+
+        // Cancel existing task if any
+        if (amethystGlowTasks.containsKey(uuid)) {
+            amethystGlowTasks.get(uuid).cancel();
+        }
+
+        // Schedule task to reapply glowing every 30 seconds to ensure persistence
+        BukkitTask task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    cancel();
+                    amethystGlowTasks.remove(uuid);
+                    return;
+                }
+
+                // Check if player still has amethyst ore type
+                if (plugin.getPlayerDataManager().getPlayerOre(player) != OreType.AMETHYST) {
+                    cancel();
+                    amethystGlowTasks.remove(uuid);
+                    return;
+                }
+
+                // Reapply glowing if it's not active
+                if (!player.hasPotionEffect(PotionEffectType.GLOWING)) {
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0));
+                }
+            }
+        }.runTaskTimer(plugin, 600L, 600L); // Every 30 seconds
+
+        amethystGlowTasks.put(uuid, task);
+    }
+
+    public void cancelAmethystGlowing(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (amethystGlowTasks.containsKey(uuid)) {
+            amethystGlowTasks.get(uuid).cancel();
+            amethystGlowTasks.remove(uuid);
+        }
+        player.removePotionEffect(PotionEffectType.GLOWING);
+    }
+
     public boolean hasActiveEffect(Player player) {
         return activeEffects.getOrDefault(player.getUniqueId(), false);
     }
@@ -344,7 +433,6 @@ public class AbilityManager {
         return copperLightningActive.getOrDefault(player.getUniqueId(), false);
     }
 
-    // FIXED: Add method to remove active effects (used by redstone ability)
     public void removeActiveEffect(Player player) {
         activeEffects.remove(player.getUniqueId());
     }
@@ -387,5 +475,31 @@ public class AbilityManager {
         UUID uuid = player.getUniqueId();
         activeEffects.remove(uuid);
         copperLightningActive.remove(uuid);
+
+        // Cancel and remove timers
+        if (ironDropTasks.containsKey(uuid)) {
+            ironDropTasks.get(uuid).cancel();
+            ironDropTasks.remove(uuid);
+        }
+
+        if (amethystGlowTasks.containsKey(uuid)) {
+            amethystGlowTasks.get(uuid).cancel();
+            amethystGlowTasks.remove(uuid);
+        }
+    }
+
+    // Method to restart timers on player join (call this from PlayerJoinEvent)
+    public void restartPlayerTimers(Player player) {
+        OreType oreType = plugin.getPlayerDataManager().getPlayerOre(player);
+        if (oreType == null) return;
+
+        switch (oreType) {
+            case IRON:
+                startIronDropTimer(player);
+                break;
+            case AMETHYST:
+                startAmethystGlowing(player);
+                break;
+        }
     }
 }
