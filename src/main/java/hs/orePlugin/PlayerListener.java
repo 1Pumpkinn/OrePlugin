@@ -4,6 +4,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.*;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.Material;
@@ -27,6 +28,7 @@ public class PlayerListener implements Listener {
     private final Map<UUID, Long> lastMoveCheck = new HashMap<>();
     private final Map<UUID, Boolean> wasOnStone = new HashMap<>();
     private final Map<UUID, Long> emeraldWeaknessCheck = new HashMap<>();
+    private final Map<UUID, Long> dirtArmorCheck = new HashMap<>();
     private final Random random = new Random();
 
     public PlayerListener(OreAbilitiesPlugin plugin) {
@@ -43,7 +45,6 @@ public class PlayerListener implements Listener {
             OreType oreType = dataManager.getPlayerOre(player);
             player.sendMessage("§6Welcome! You have been assigned the " + oreType.getDisplayName() + " ore type!");
 
-            // Show activation methods based on mode
             AbilityActivationManager activationManager = plugin.getActivationManager();
             if (activationManager.isBedrockMode(player)) {
                 player.sendMessage("§eUse §6/ability §eto activate your abilities!");
@@ -53,27 +54,27 @@ public class PlayerListener implements Listener {
             }
         }
 
-        // Apply passive effects based on ore type
-        applyPassiveEffects(player);
+        // Apply ALL passive effects immediately upon join
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                applyAllPassiveEffects(player);
+                plugin.getAbilityManager().restartPlayerTimers(player);
+            }
+        }.runTaskLater(plugin, 5); // Small delay to ensure player is fully loaded
 
-        // Start persistent timers for Iron and Amethyst users
-        plugin.getAbilityManager().restartPlayerTimers(player);
-
-        // Start action bar for the player
         plugin.getActionBarManager().startActionBar(player);
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
-        // Stop action bar display
         plugin.getActionBarManager().stopActionBar(player);
-
-        // Clean up timers when player leaves
         plugin.getAbilityManager().cleanup(player);
-
-        // Clean up emerald weakness check
         emeraldWeaknessCheck.remove(player.getUniqueId());
+        dirtArmorCheck.remove(player.getUniqueId());
+        lastMoveCheck.remove(player.getUniqueId());
+        wasOnStone.remove(player.getUniqueId());
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -98,9 +99,68 @@ public class PlayerListener implements Listener {
 
         handleMovementEffects(player, oreType, blockBelow.getType());
 
-        // FIXED: Check emerald weakness every few seconds
+        // Check emerald weakness and dirt armor effects periodically
         if (oreType == OreType.EMERALD) {
             handleEmeraldWeakness(player);
+        }
+
+        if (oreType == OreType.DIRT) {
+            handleDirtArmorCheck(player);
+        }
+    }
+
+    // FIXED: Handle dirt armor checking with proper timing
+    private void handleDirtArmorCheck(Player player) {
+        UUID uuid = player.getUniqueId();
+        long currentTime = System.currentTimeMillis();
+
+        // Check every 3 seconds to avoid spam
+        if (!dirtArmorCheck.containsKey(uuid) ||
+                currentTime - dirtArmorCheck.get(uuid) > 3000) {
+
+            dirtArmorCheck.put(uuid, currentTime);
+            checkAndApplyDirtEffects(player);
+        }
+    }
+
+    // FIXED: Complete dirt effects implementation
+    private void checkAndApplyDirtEffects(Player player) {
+        ItemStack[] armor = player.getInventory().getArmorContents();
+        boolean hasFullLeatherArmor = true;
+
+        for (ItemStack piece : armor) {
+            if (piece == null || !piece.getType().name().contains("LEATHER")) {
+                hasFullLeatherArmor = false;
+                break;
+            }
+        }
+
+        AttributeInstance armorAttribute = player.getAttribute(Attribute.ARMOR);
+
+        if (hasFullLeatherArmor) {
+            // Give diamond-level armor protection (20 armor points)
+            if (armorAttribute != null && armorAttribute.getBaseValue() < 20) {
+                armorAttribute.setBaseValue(20);
+                player.sendMessage("§6Dirt blessing! Full leather armor provides diamond-level protection!");
+            }
+
+            // Remove mining fatigue if present
+            if (player.hasPotionEffect(PotionEffectType.MINING_FATIGUE)) {
+                player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
+                player.sendMessage("§aDirt blessing! Mining fatigue removed with full leather armor!");
+            }
+        } else {
+            // Reset armor to normal leather protection
+            if (armorAttribute != null && armorAttribute.getBaseValue() > 7) {
+                armorAttribute.setBaseValue(0); // Let armor calculate normally
+                player.sendMessage("§cDirt curse! Lost diamond-level protection without full leather armor!");
+            }
+
+            // Apply mining fatigue
+            if (!player.hasPotionEffect(PotionEffectType.MINING_FATIGUE)) {
+                player.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, Integer.MAX_VALUE, 0, false, false));
+                player.sendMessage("§cDirt curse! Mining fatigue applied - you need full leather armor!");
+            }
         }
     }
 
@@ -114,7 +174,6 @@ public class PlayerListener implements Listener {
 
             emeraldWeaknessCheck.put(uuid, currentTime);
 
-            // Check if player has at least 4 stacks of emeralds
             int emeraldCount = 0;
             for (ItemStack item : player.getInventory().getContents()) {
                 if (item != null && item.getType() == Material.EMERALD) {
@@ -152,7 +211,7 @@ public class PlayerListener implements Listener {
             player.sendMessage("§6Apple enhanced by Wood ore!");
         }
 
-        // FIXED: Gold ore - golden apples give 2x absorption
+        // Gold ore - golden apples give 2x absorption
         if (oreType == OreType.GOLD && item.getType() == Material.GOLDEN_APPLE) {
             new BukkitRunnable() {
                 @Override
@@ -160,7 +219,7 @@ public class PlayerListener implements Listener {
                     player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 2400, 1)); // Extra absorption
                     player.sendMessage("§6Gold ore enhanced your golden apple!");
                 }
-            }.runTaskLater(plugin, 1); // Slight delay to apply after normal golden apple effect
+            }.runTaskLater(plugin, 1);
         }
     }
 
@@ -174,7 +233,7 @@ public class PlayerListener implements Listener {
 
         Material blockType = event.getBlock().getType();
 
-        // FIXED: Diamond ore downside - 50% chance to not drop ore
+        // Diamond ore downside - 50% chance to not drop ore
         if (oreType == OreType.DIAMOND && isOre(blockType)) {
             if (random.nextDouble() < 0.5) {
                 event.setDropItems(false);
@@ -182,9 +241,9 @@ public class PlayerListener implements Listener {
             }
         }
 
-        // FIXED: Netherite upside - ancient debris turns into netherite ingots
+        // Netherite upside - ancient debris turns into netherite ingots
         if (oreType == OreType.NETHERITE && blockType == Material.ANCIENT_DEBRIS) {
-            event.setDropItems(false); // Cancel normal drops
+            event.setDropItems(false);
             ItemStack netheriteIngot = new ItemStack(Material.NETHERITE_INGOT, 1);
             event.getBlock().getWorld().dropItemNaturally(event.getBlock().getLocation(), netheriteIngot);
             player.sendMessage("§4Netherite blessing! Ancient debris became a netherite ingot!");
@@ -192,7 +251,29 @@ public class PlayerListener implements Listener {
         }
     }
 
+    // FIXED: Handle armor changes for dirt ore
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) return;
+        Player player = (Player) event.getWhoClicked();
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        OreType oreType = dataManager.getPlayerOre(player);
 
+        // Check for armor slot changes for dirt ore
+        if (oreType == OreType.DIRT && isArmorSlot(event.getSlot())) {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    checkAndApplyDirtEffects(player);
+                }
+            }.runTaskLater(plugin, 1);
+        }
+    }
+
+    private boolean isArmorSlot(int slot) {
+        // Armor slots in player inventory are 36-39 (boots, leggings, chestplate, helmet)
+        return slot >= 36 && slot <= 39;
+    }
 
     private void handleMovementEffects(Player player, OreType oreType, Material blockBelow) {
         UUID uuid = player.getUniqueId();
@@ -203,12 +284,10 @@ public class PlayerListener implements Listener {
                 Boolean wasOnStonePreviously = wasOnStone.get(uuid);
 
                 if (isOnStone && (wasOnStonePreviously == null || !wasOnStonePreviously)) {
-                    // Just stepped on stone - apply effects
                     player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, Integer.MAX_VALUE, 0));
                     player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 0));
                     player.sendMessage("§7Stone blessing activated! Regeneration while on stone.");
                 } else if (!isOnStone && wasOnStonePreviously != null && wasOnStonePreviously) {
-                    // Just stepped off stone - remove effects
                     player.removePotionEffect(PotionEffectType.REGENERATION);
                     player.removePotionEffect(PotionEffectType.SLOWNESS);
                     player.sendMessage("§7Stone blessing ended.");
@@ -219,35 +298,79 @@ public class PlayerListener implements Listener {
         }
     }
 
-    private void applyPassiveEffects(Player player) {
+    // FIXED: Apply ALL passive effects immediately and correctly
+    private void applyAllPassiveEffects(Player player) {
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
         OreType oreType = dataManager.getPlayerOre(player);
         if (oreType == null) return;
 
+        player.sendMessage("§eApplying " + oreType.getDisplayName() + " ore effects...");
+
         switch (oreType) {
+            case DIRT:
+                // Apply dirt effects immediately
+                checkAndApplyDirtEffects(player);
+                player.sendMessage("§6Dirt ore effects applied! Full leather armor = diamond protection, else mining fatigue!");
+                break;
+
             case IRON:
-                // FIXED: Permanent +2 armor attribute
+                // Permanent +2 armor attribute
                 AttributeInstance armor = player.getAttribute(Attribute.ARMOR);
                 if (armor != null) {
                     armor.setBaseValue(armor.getBaseValue() + 2);
                 }
+                player.sendMessage("§fIron ore effects applied! +2 armor and random item drops!");
                 break;
 
             case NETHERITE:
                 // No fire damage
                 player.setFireTicks(0);
+                player.sendMessage("§4Netherite ore effects applied! Fire immunity!");
                 break;
 
             case AMETHYST:
                 // Start persistent glowing effect immediately
-                plugin.getAbilityManager().startAmethystGlowing(player);
+                player.sendMessage("§dAmethyst ore effects applied! Permanent purple glowing!");
                 break;
 
             case EMERALD:
-                // FIXED: Infinite hero of the village AND check emerald requirement
+                // Infinite hero of the village AND check emerald requirement
                 player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9, false, false));
                 // Initial emerald weakness check
                 handleEmeraldWeakness(player);
+                player.sendMessage("§aEmerald ore effects applied! Hero of village + emerald requirement!");
+                break;
+
+            case COPPER:
+                player.sendMessage("§cCopper ore effects applied! Lightning immunity + armor breaks 2x faster!");
+                break;
+
+            case DIAMOND:
+                player.sendMessage("§bDiamond ore effects applied! Armor lasts 2x longer + 50% ore drop fail!");
+                break;
+
+            case COAL:
+                player.sendMessage("§8Coal ore effects applied! +1 fire damage + water damage!");
+                break;
+
+            case REDSTONE:
+                player.sendMessage("§4Redstone ore effects applied! Dripstone immunity + 5x bee/slime damage!");
+                break;
+
+            case LAPIS:
+                player.sendMessage("§9Lapis ore effects applied! Free anvils + no villager trading!");
+                break;
+
+            case GOLD:
+                player.sendMessage("§eGold ore effects applied! 2x golden apple absorption + random durability!");
+                break;
+
+            case WOOD:
+                player.sendMessage("§eWood ore effects applied! Apples = golden apples!");
+                break;
+
+            case STONE:
+                player.sendMessage("§7Stone ore effects applied! Regeneration on stone blocks!");
                 break;
         }
     }

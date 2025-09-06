@@ -40,7 +40,6 @@ public class AbilityManager {
             long remaining = dataManager.getRemainingCooldown(player);
             String message = configs != null ? configs.getMessage("ability-on-cooldown", "time", String.valueOf(remaining))
                     : "§cAbility on cooldown! " + remaining + " seconds remaining.";
-            // FIXED: Ensure color codes are properly applied
             message = ChatColor.translateAlternateColorCodes('&', message);
             player.sendMessage(message);
             return false;
@@ -60,7 +59,6 @@ public class AbilityManager {
             player.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, Integer.MAX_VALUE, 0, false, false));
         }
 
-        // Check if ore type is enabled
         if (configs != null && !configs.isOreEnabled(oreType)) {
             player.sendMessage("§cThis ore type is currently disabled!");
             return false;
@@ -68,11 +66,9 @@ public class AbilityManager {
 
         executeAbility(player, oreType);
 
-        // Use config-based cooldown
         int cooldown = configs != null ? configs.getCooldown(oreType) : oreType.getCooldown();
         dataManager.setCooldown(player, cooldown);
 
-        // Update action bar immediately
         plugin.getActionBarManager().updateCooldownDisplay(player);
 
         return true;
@@ -132,14 +128,15 @@ public class AbilityManager {
         }
     }
 
+    // FIXED: Dirt ability gives 4 absorption hearts for 15 seconds
     private void dirtAbility(Player player) {
         Location loc = player.getLocation();
         Material below = loc.subtract(0, 1, 0).getBlock().getType();
         loc.add(0, 1, 0); // Reset location
 
         if (below == Material.GRASS_BLOCK || below == Material.DIRT) {
-            player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 300, 1)); // +2 hearts for 15s
-            player.sendMessage("§aDirt ability activated! +2 hearts for 15 seconds!");
+            player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 300, 3)); // +4 hearts for 15s (level 3 = 4 hearts)
+            player.sendMessage("§aEarth's Blessing activated! +4 absorption hearts for 15 seconds!");
             player.playSound(player.getLocation(), Sound.BLOCK_GRASS_BREAK, 1.0f, 1.0f);
         } else {
             player.sendMessage("§cYou must be standing on grass or dirt!");
@@ -148,21 +145,21 @@ public class AbilityManager {
 
     private void woodAbility(Player player) {
         activeEffects.put(player.getUniqueId(), true);
-        player.sendMessage("§6Wood ability activated! Axes deal 1.5x damage for 5 seconds!");
+        player.sendMessage("§6Lumberjack's Fury activated! Axes deal 1.5x damage for 5 seconds!");
         player.playSound(player.getLocation(), Sound.BLOCK_WOOD_BREAK, 1.0f, 1.0f);
 
         new BukkitRunnable() {
             @Override
             public void run() {
                 activeEffects.remove(player.getUniqueId());
-                player.sendMessage("§eWood ability effect ended.");
+                player.sendMessage("§eLumberjack's Fury effect ended.");
             }
         }.runTaskLater(plugin, 100); // 5 seconds
     }
 
     private void stoneAbility(Player player) {
         player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 200, 0)); // Resistance 1 for 10s
-        player.sendMessage("§7Stone ability activated! Resistance 1 for 10 seconds!");
+        player.sendMessage("§7Stone Skin activated! Resistance 1 for 10 seconds!");
         player.playSound(player.getLocation(), Sound.BLOCK_STONE_BREAK, 1.0f, 1.0f);
     }
 
@@ -186,14 +183,12 @@ public class AbilityManager {
     }
 
     private void copperAbility(Player player) {
-        // Auto-enchant held trident with Channeling at ability start
         ItemStack handItem = player.getInventory().getItemInMainHand();
         if (handItem != null && handItem.getType() == Material.TRIDENT) {
             ItemMeta meta = handItem.getItemMeta();
             if (meta != null && !meta.hasEnchant(Enchantment.CHANNELING)) {
                 meta.addEnchant(Enchantment.CHANNELING, 1, true);
                 handItem.setItemMeta(meta);
-                // Ensure the item is updated in the player's hand
                 player.getInventory().setItemInMainHand(handItem);
                 player.sendMessage("§3Your trident has been enchanted with Channeling!");
                 player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1.0f, 1.2f);
@@ -265,7 +260,6 @@ public class AbilityManager {
     }
 
     private void emeraldAbility(Player player) {
-        // FIXED: Check emerald requirement before giving effects
         if (!hasRequiredEmeralds(player)) {
             player.sendMessage("§cYou need at least 4 stacks of emeralds to use this ability!");
             return;
@@ -303,7 +297,7 @@ public class AbilityManager {
         ItemStack weapon = player.getInventory().getItemInMainHand();
         if (weapon != null && weapon.getType() == Material.DIAMOND_SWORD) {
             activeEffects.put(player.getUniqueId(), true);
-            player.sendMessage("§bGleaming Power activated! Diamond sword deals 1.4x damage for 5 seconds!");
+            player.sendMessage("§bGleaming Power activated! Diamond sword deals 2x damage for 5 seconds!"); // Fixed message to show 2x
             player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 2.0f);
 
             new BukkitRunnable() {
@@ -338,20 +332,17 @@ public class AbilityManager {
         player.playSound(player.getLocation(), Sound.UI_STONECUTTER_TAKE_RESULT, 1.0f, 0.5f);
     }
 
-    // FIXED: Iron drop timer implementation with proper minute intervals
     public void startIronDropTimer(Player player) {
         UUID uuid = player.getUniqueId();
 
-        // Cancel existing timer if any
         if (ironDropTasks.containsKey(uuid)) {
             ironDropTasks.get(uuid).cancel();
             ironDropTasks.remove(uuid);
         }
 
-        // Get the interval from config (in minutes)
         OreConfigs configs = plugin.getOreConfigs();
         int intervalMinutes = configs != null ? configs.getIronDropInterval() : 10;
-        long intervalTicks = intervalMinutes * 60 * 20L; // Convert minutes to ticks (20 ticks = 1 second, 60 seconds = 1 minute)
+        long intervalTicks = intervalMinutes * 60 * 20L;
 
         plugin.getLogger().info("Starting Iron drop timer for " + player.getName() + " - interval: " + intervalMinutes + " minutes (" + intervalTicks + " ticks)");
 
@@ -365,7 +356,6 @@ public class AbilityManager {
                     return;
                 }
 
-                // Check if player still has iron ore type
                 if (plugin.getPlayerDataManager().getPlayerOre(player) != OreType.IRON) {
                     plugin.getLogger().info("Iron timer cancelled for " + player.getName() + " - no longer iron ore type");
                     cancel();
@@ -376,7 +366,7 @@ public class AbilityManager {
                 plugin.getLogger().info("Iron timer triggered for " + player.getName() + " - dropping random item");
                 dropRandomItem(player);
             }
-        }.runTaskTimer(plugin, intervalTicks, intervalTicks); // First drop after full interval, then repeat
+        }.runTaskTimer(plugin, intervalTicks, intervalTicks);
 
         ironDropTasks.put(uuid, task);
     }
@@ -394,7 +384,6 @@ public class AbilityManager {
         ItemStack[] inventory = player.getInventory().getContents();
         java.util.List<Integer> validSlots = new java.util.ArrayList<>();
 
-        // Find slots with items (exclude armor slots 36-39)
         for (int i = 0; i < 36; i++) { // Only check main inventory, not armor
             if (inventory[i] != null && inventory[i].getType() != Material.AIR) {
                 validSlots.add(i);
@@ -407,18 +396,14 @@ public class AbilityManager {
             return;
         }
 
-        // Pick random slot and drop one item from that stack
         int randomSlot = validSlots.get(random.nextInt(validSlots.size()));
         ItemStack itemStack = inventory[randomSlot];
 
-        // Create a single item to drop
         ItemStack itemToDrop = itemStack.clone();
         itemToDrop.setAmount(1);
 
-        // Drop the item
         player.getWorld().dropItemNaturally(player.getLocation(), itemToDrop);
 
-        // Reduce the stack size or remove it if it was the last item
         if (itemStack.getAmount() > 1) {
             itemStack.setAmount(itemStack.getAmount() - 1);
         } else {
@@ -431,22 +416,17 @@ public class AbilityManager {
         plugin.getLogger().info("Iron drop successful for " + player.getName() + " - dropped " + itemToDrop.getType().name());
     }
 
-    // FIXED: Amethyst permanent glowing implementation with purple color
+    // FIXED: Amethyst permanent glowing implementation
     public void startAmethystGlowing(Player player) {
         UUID uuid = player.getUniqueId();
 
-        // Create or get purple team for amethyst players
         setupAmethystTeam(player);
-
-        // Apply initial glowing effect
         player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0, false, false));
 
-        // Cancel existing task if any
         if (amethystGlowTasks.containsKey(uuid)) {
             amethystGlowTasks.get(uuid).cancel();
         }
 
-        // Schedule task to reapply glowing every 30 seconds to ensure persistence
         BukkitTask task = new BukkitRunnable() {
             @Override
             public void run() {
@@ -456,19 +436,16 @@ public class AbilityManager {
                     return;
                 }
 
-                // Check if player still has amethyst ore type
                 if (plugin.getPlayerDataManager().getPlayerOre(player) != OreType.AMETHYST) {
                     cancel();
                     amethystGlowTasks.remove(uuid);
                     return;
                 }
 
-                // Reapply glowing if it's not active
                 if (!player.hasPotionEffect(PotionEffectType.GLOWING)) {
                     player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0, false, false));
                 }
 
-                // Ensure player is still in purple team
                 setupAmethystTeam(player);
             }
         }.runTaskTimer(plugin, 600L, 600L); // Every 30 seconds
@@ -499,7 +476,6 @@ public class AbilityManager {
         }
         player.removePotionEffect(PotionEffectType.GLOWING);
 
-        // Remove from amethyst team
         Scoreboard scoreboard = player.getServer().getScoreboardManager().getMainScoreboard();
         Team amethystTeam = scoreboard.getTeam("amethyst");
         if (amethystTeam != null && amethystTeam.hasEntry(player.getName())) {
@@ -533,7 +509,6 @@ public class AbilityManager {
             case WET_SPONGE: return Material.SPONGE;
             case CACTUS: return Material.GREEN_DYE;
             case KELP: return Material.DRIED_KELP;
-            // FIXED: Add ancient debris to netherite ingot conversion
             case ANCIENT_DEBRIS: return Material.NETHERITE_INGOT;
             default: return null;
         }
@@ -554,13 +529,11 @@ public class AbilityManager {
         }
     }
 
-    // Cleanup method for plugin disable/player logout
     public void cleanup(Player player) {
         UUID uuid = player.getUniqueId();
         activeEffects.remove(uuid);
         copperLightningActive.remove(uuid);
 
-        // Cancel and remove timers
         if (ironDropTasks.containsKey(uuid)) {
             ironDropTasks.get(uuid).cancel();
             ironDropTasks.remove(uuid);
@@ -572,7 +545,6 @@ public class AbilityManager {
         }
     }
 
-    // Method to restart timers on player join (call this from PlayerJoinEvent)
     public void restartPlayerTimers(Player player) {
         OreType oreType = plugin.getPlayerDataManager().getPlayerOre(player);
         if (oreType == null) return;

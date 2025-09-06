@@ -23,6 +23,7 @@ import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.Damageable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -34,6 +35,7 @@ public class AbilityListener implements Listener {
     private final Random random = new Random();
     private final Map<UUID, Long> lastWaterDamageTime = new HashMap<>();
     private final Map<UUID, BukkitRunnable> copperArmorTasks = new HashMap<>();
+    private final Map<UUID, BukkitRunnable> diamondArmorTasks = new HashMap<>();
 
     public AbilityListener(OreAbilitiesPlugin plugin) {
         this.plugin = plugin;
@@ -78,11 +80,10 @@ public class AbilityListener implements Listener {
 
                     // Better lightning protection for copper user
                     if (attacker.getLocation().distance(strikeLocation) < 10) {
-                        // Cancel any lightning damage to the copper user
                         new BukkitRunnable() {
                             @Override
                             public void run() {
-                                attacker.setFireTicks(0); // Remove fire
+                                attacker.setFireTicks(0);
                                 attacker.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 60, 0));
                             }
                         }.runTaskLater(plugin, 1);
@@ -94,8 +95,7 @@ public class AbilityListener implements Listener {
                 if (abilityManager.hasActiveEffect(attacker)) {
                     ItemStack weapon = attacker.getInventory().getItemInMainHand();
                     if (weapon != null && weapon.getType() == Material.DIAMOND_SWORD) {
-                        // FIXED: 1.4x damage for diamond
-                        event.setDamage(event.getDamage() * 1.4);
+                        event.setDamage(event.getDamage() * 2.0); // 2x damage for diamond
                         attacker.playSound(attacker.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 2.0f);
                     }
                 }
@@ -104,12 +104,10 @@ public class AbilityListener implements Listener {
             case REDSTONE:
                 if (abilityManager.hasActiveEffect(attacker) && event.getEntity() instanceof Player) {
                     Player target = (Player) event.getEntity();
-                    // Better jump prevention - use higher negative amplifier
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 200, -128, false, false));
+                    // FIXED: Use negative jump boost to prevent jumping entirely
+                    target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 200, -10, false, false));
                     target.sendMessage("§4You cannot jump for 10 seconds!");
                     attacker.sendMessage("§cSticky Slime effect applied to " + target.getName() + "!");
-
-                    // Remove the active effect after use
                     plugin.getAbilityManager().removeActiveEffect(attacker);
                 }
                 break;
@@ -117,8 +115,7 @@ public class AbilityListener implements Listener {
             case AMETHYST:
                 ItemStack offhand = attacker.getInventory().getItemInOffHand();
                 if (offhand != null && offhand.getType() == Material.AMETHYST_SHARD) {
-                    // FIXED: 1.1x damage for amethyst
-                    event.setDamage(event.getDamage() * 1.1);
+                    event.setDamage(event.getDamage() + 1.5); // +1.5 damage
                 }
                 break;
 
@@ -144,9 +141,7 @@ public class AbilityListener implements Listener {
 
         switch (oreType) {
             case COAL:
-                // Water damage only when player is actually in water
                 if (event.getCause() == EntityDamageEvent.DamageCause.CUSTOM && player.isInWater()) {
-                    // This will be handled in PlayerMoveEvent
                     return;
                 }
                 break;
@@ -159,7 +154,6 @@ public class AbilityListener implements Listener {
                         player.sendMessage("§cRedstone weakness to " + damageEvent.getDamager().getType().name().toLowerCase() + "!");
                     }
                 }
-                // Better dripstone/stalactite damage prevention
                 if (isDripstoneOrStalactiteDamage(event)) {
                     event.setCancelled(true);
                     player.sendMessage("§4Redstone protection from dripstone/stalactite!");
@@ -174,7 +168,6 @@ public class AbilityListener implements Listener {
                 break;
 
             case COPPER:
-                // Prevent lightning damage to copper users
                 if (event.getCause() == EntityDamageEvent.DamageCause.LIGHTNING) {
                     event.setCancelled(true);
                     player.sendMessage("§3Copper protection from lightning!");
@@ -182,7 +175,6 @@ public class AbilityListener implements Listener {
                 break;
 
             case NETHERITE:
-                // No fire damage for netherite users
                 if (event.getCause() == EntityDamageEvent.DamageCause.FIRE ||
                         event.getCause() == EntityDamageEvent.DamageCause.FIRE_TICK ||
                         event.getCause() == EntityDamageEvent.DamageCause.LAVA) {
@@ -249,7 +241,6 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // Proper coal water damage handling
     private void handleCoalWaterDamage(Player player) {
         if (player.isInWater()) {
             UUID uuid = player.getUniqueId();
@@ -268,14 +259,11 @@ public class AbilityListener implements Listener {
                 lastWaterDamageTime.put(uuid, currentTime);
             }
         } else {
-            // Reset timer when not in water
             lastWaterDamageTime.remove(player.getUniqueId());
         }
     }
 
-    // Better method to detect dripstone damage
     private boolean isDripstoneOrStalactiteDamage(EntityDamageEvent event) {
-        // Check for falling block damage (dripstone)
         if (event.getCause() == EntityDamageEvent.DamageCause.FALLING_BLOCK) {
             if (event instanceof EntityDamageByEntityEvent) {
                 EntityDamageByEntityEvent fbEvent = (EntityDamageByEntityEvent) event;
@@ -284,14 +272,12 @@ public class AbilityListener implements Listener {
                     return fb.getBlockData().getMaterial() == Material.POINTED_DRIPSTONE;
                 }
             }
-            return true; // Assume all falling block damage for redstone protection
+            return true;
         }
 
-        // Check for contact damage with dripstone
         if (event.getCause() == EntityDamageEvent.DamageCause.CONTACT) {
             Player player = (Player) event.getEntity();
             Location loc = player.getLocation();
-            // Check surrounding blocks for dripstone
             for (int x = -1; x <= 1; x++) {
                 for (int y = -1; y <= 2; y++) {
                     for (int z = -1; z <= 1; z++) {
@@ -318,7 +304,6 @@ public class AbilityListener implements Listener {
 
         ItemStack result = event.getRecipe().getResult();
 
-        // Check if crafting a direct ore mastery item
         if (RecipeManager.isDirectOreItem(result)) {
             OreType newOreType = RecipeManager.getOreTypeFromDirectItem(result);
 
@@ -328,7 +313,6 @@ public class AbilityListener implements Listener {
                 return;
             }
 
-            // Check if already have this ore type
             if (currentOreType == newOreType) {
                 event.setCancelled(true);
                 player.sendMessage("§cYou already have the " + newOreType.getDisplayName() + " ore ability!");
@@ -336,7 +320,6 @@ public class AbilityListener implements Listener {
                 return;
             }
 
-            // Use config-based shatter chance
             double shatterChance = configs != null ? configs.getShatterChance() : 0.25;
             if (random.nextDouble() < shatterChance) {
                 event.setCancelled(true);
@@ -346,151 +329,206 @@ public class AbilityListener implements Listener {
                 return;
             }
 
-            // Cancel the event to prevent getting the item
             event.setCancelled(true);
 
-            // Remove old ore effects if switching
+            // FIXED: Remove ALL old ore effects before applying new ones
             if (currentOreType != null) {
-                removeOreTypeEffects(player, currentOreType);
+                removeAllOreTypeEffects(player, currentOreType);
                 player.sendMessage("§e⚠ Replacing your " + currentOreType.getDisplayName() + " ore ability!");
             }
 
-            // Set new ore type directly
             dataManager.setPlayerOre(player, newOreType);
+            applyAllOreTypeEffects(player, newOreType);
 
-            // Apply new ore effects
-            applyOreTypeEffects(player, newOreType);
-
-            // Success messages and effects
             String oreColor = getOreColor(newOreType);
             player.sendMessage("§a✓ Successfully mastered the " + oreColor + newOreType.getDisplayName() + " §aore!");
             player.sendMessage("§7Your new ability: §6" + getAbilityName(newOreType));
 
-            // Use config-based cooldown in message
             int cooldown = configs != null ? configs.getCooldown(newOreType) : newOreType.getCooldown();
             player.sendMessage("§7Cooldown: §b" + cooldown + " seconds");
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
 
-            // Update action bar to show new ore type
             plugin.getActionBarManager().stopActionBar(player);
             plugin.getActionBarManager().startActionBar(player);
 
             return;
         }
 
-        // FIXED: Handle gold ore curse for tools/weapons/armor crafting
         if (currentOreType == OreType.GOLD && isToolWeaponOrArmor(result.getType())) {
             new BukkitRunnable() {
                 @Override
                 public void run() {
-                    // Apply gold curse to newly crafted items
                     applyGoldCurse(player, result.getType());
                 }
             }.runTaskLater(plugin, 2);
         }
     }
 
-    // FIXED: Better gold curse implementation
     private void applyGoldCurse(Player player, Material itemType) {
         ItemStack[] contents = player.getInventory().getContents();
         for (int i = 0; i < contents.length; i++) {
             ItemStack item = contents[i];
             if (item != null && item.getType() == itemType) {
-                short maxDurability = item.getType().getMaxDurability();
-                if (maxDurability > 0) {
-                    // Randomize durability between 1 and 100
-                    int randomDurability = random.nextInt(100) + 1;
-                    if (randomDurability > maxDurability) {
-                        randomDurability = maxDurability;
+                if (item.getItemMeta() instanceof Damageable) {
+                    Damageable damageable = (Damageable) item.getItemMeta();
+                    int maxDurability = item.getType().getMaxDurability();
+                    if (maxDurability > 0) {
+                        int randomDurability = random.nextInt(100) + 1;
+                        if (randomDurability > maxDurability) {
+                            randomDurability = maxDurability;
+                        }
+
+                        int damageValue = maxDurability - randomDurability;
+                        damageable.setDamage(damageValue);
+                        item.setItemMeta((ItemMeta) damageable);
+
+                        player.sendMessage("§6Gold curse! Item durability set to " + randomDurability + "/" + maxDurability + "!");
+                        player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_PLACE, 1.0f, 0.8f);
+                        break;
                     }
-
-                    short damageValue = (short) (maxDurability - randomDurability);
-                    item.setDurability(damageValue);
-
-                    player.sendMessage("§6Gold curse! Item durability set to " + randomDurability + "/" + maxDurability + "!");
-                    player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_PLACE, 1.0f, 0.8f);
-                    break;
                 }
             }
         }
     }
 
-    private void applyOreTypeEffects(Player player, OreType oreType) {
+    // FIXED: Complete ore type effect management
+    private void applyAllOreTypeEffects(Player player, OreType oreType) {
         switch (oreType) {
+            case DIRT:
+                // FIXED: Dirt gets diamond-level armor protection (20 armor points) but only with full leather armor
+                checkAndApplyDirtArmor(player);
+                // FIXED: Apply mining fatigue when not wearing full leather
+                checkAndApplyDirtMiningFatigue(player);
+                break;
             case IRON:
-                // Apply +2 armor bonus properly
                 AttributeInstance armorAttribute = player.getAttribute(Attribute.ARMOR);
                 if (armorAttribute != null) {
                     double currentBase = armorAttribute.getBaseValue();
                     armorAttribute.setBaseValue(currentBase + 2);
                 }
-                // Start iron drop timer when getting iron ore
                 plugin.getAbilityManager().startIronDropTimer(player);
                 break;
             case AMETHYST:
-                // FIXED: Start amethyst glowing AND setup purple team
                 plugin.getAbilityManager().startAmethystGlowing(player);
                 break;
             case EMERALD:
-                // FIXED: Apply emerald effects properly
                 player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9, false, false));
                 break;
             case COPPER:
-                // Apply armor durability curse
-                startArmorDurabilityTimer(player);
+                startCopperArmorDurabilityTimer(player);
                 break;
-            case STONE:
-                // Stone effects are handled in PlayerListener based on movement
-                break;
-            case DIRT:
-                // Dirt effects are handled in PlayerListener based on armor
+            case DIAMOND:
+                startDiamondArmorProtectionTimer(player);
                 break;
         }
     }
 
-    private void removeOreTypeEffects(Player player, OreType oreType) {
+    // FIXED: Complete ore type effect removal
+    private void removeAllOreTypeEffects(Player player, OreType oreType) {
         switch (oreType) {
+            case DIRT:
+                // Remove all dirt effects
+                player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
+                // Reset armor to normal
+                AttributeInstance dirtArmor = player.getAttribute(Attribute.ARMOR);
+                if (dirtArmor != null) {
+                    dirtArmor.setBaseValue(0); // Reset to default
+                }
+                break;
             case IRON:
-                // Reset armor attribute properly
                 AttributeInstance armorAttribute = player.getAttribute(Attribute.ARMOR);
                 if (armorAttribute != null) {
                     double currentBase = armorAttribute.getBaseValue();
                     armorAttribute.setBaseValue(Math.max(0, currentBase - 2));
                 }
-                // Cancel iron drop timer when losing iron ore
                 plugin.getAbilityManager().cancelIronDropTimer(player);
                 break;
             case AMETHYST:
-                // Cancel amethyst glowing when losing amethyst ore
                 plugin.getAbilityManager().cancelAmethystGlowing(player);
                 break;
             case EMERALD:
                 player.removePotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE);
+                player.removePotionEffect(PotionEffectType.WEAKNESS);
                 break;
             case COPPER:
-                // Stop armor durability timer
-                stopArmorDurabilityTimer(player);
+                stopCopperArmorDurabilityTimer(player);
+                break;
+            case DIAMOND:
+                stopDiamondArmorProtectionTimer(player);
                 break;
             case STONE:
-                // Remove stone-related effects
                 player.removePotionEffect(PotionEffectType.REGENERATION);
                 player.removePotionEffect(PotionEffectType.SLOWNESS);
                 break;
-            case DIRT:
-                // Remove dirt-related effects
-                player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
+            case COAL:
+                // No persistent effects to remove for coal
+                break;
+            case NETHERITE:
+                // No persistent effects to remove for netherite
+                break;
+            case REDSTONE:
+                // No persistent effects to remove for redstone
+                break;
+            case LAPIS:
+                // No persistent effects to remove for lapis
+                break;
+            case GOLD:
+                // No persistent effects to remove for gold
+                break;
+            case WOOD:
+                // No persistent effects to remove for wood
                 break;
         }
     }
 
-    // Copper armor durability curse with proper cleanup
-    private void startArmorDurabilityTimer(Player player) {
-        // Stop any existing timer first
-        stopArmorDurabilityTimer(player);
+    // FIXED: Dirt ore effects implementation
+    private void checkAndApplyDirtArmor(Player player) {
+        ItemStack[] armor = player.getInventory().getArmorContents();
+        boolean hasFullLeatherArmor = true;
 
-        OreConfigs configs = plugin.getOreConfigs();
-        int damageInterval = configs != null ? configs.getCopperArmorDamageInterval() : 100;
-        double multiplier = configs != null ? configs.getCopperArmorDurabilityMultiplier() : 2.0;
+        for (ItemStack piece : armor) {
+            if (piece == null || !piece.getType().name().contains("LEATHER")) {
+                hasFullLeatherArmor = false;
+                break;
+            }
+        }
+
+        AttributeInstance armorAttribute = player.getAttribute(Attribute.ARMOR);
+        if (armorAttribute != null) {
+            if (hasFullLeatherArmor) {
+                // Give diamond-level armor (20 armor points)
+                armorAttribute.setBaseValue(20);
+                player.sendMessage("§6Dirt blessing! Full leather armor is now unbreakable and diamond-strong!");
+            } else {
+                // Reset to normal armor calculation
+                armorAttribute.setBaseValue(0);
+            }
+        }
+    }
+
+    private void checkAndApplyDirtMiningFatigue(Player player) {
+        ItemStack[] armor = player.getInventory().getArmorContents();
+        boolean hasFullLeatherArmor = true;
+
+        for (ItemStack piece : armor) {
+            if (piece == null || !piece.getType().name().contains("LEATHER")) {
+                hasFullLeatherArmor = false;
+                break;
+            }
+        }
+
+        if (!hasFullLeatherArmor && !player.hasPotionEffect(PotionEffectType.MINING_FATIGUE)) {
+            player.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, Integer.MAX_VALUE, 0, false, false));
+            player.sendMessage("§cDirt curse! You need full leather armor or you'll mine slowly!");
+        } else if (hasFullLeatherArmor && player.hasPotionEffect(PotionEffectType.MINING_FATIGUE)) {
+            player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
+            player.sendMessage("§aDirt blessing! Mining fatigue removed!");
+        }
+    }
+
+    // FIXED: Copper armor durability timer (2x faster breaking)
+    private void startCopperArmorDurabilityTimer(Player player) {
+        stopCopperArmorDurabilityTimer(player);
 
         BukkitRunnable task = new BukkitRunnable() {
             @Override
@@ -502,18 +540,22 @@ public class AbilityListener implements Listener {
                     return;
                 }
 
-                // Damage armor pieces
+                // Damage armor pieces at 2x rate
                 ItemStack[] armorContents = player.getInventory().getArmorContents();
                 boolean armorDamaged = false;
 
                 for (ItemStack armor : armorContents) {
                     if (armor != null && armor.getType() != Material.AIR) {
-                        short maxDurability = armor.getType().getMaxDurability();
-                        if (maxDurability > 0) {
-                            short currentDurability = armor.getDurability();
-                            int damageToApply = (int) Math.ceil(multiplier);
-                            armor.setDurability((short) Math.min(maxDurability, currentDurability + damageToApply));
-                            armorDamaged = true;
+                        if (armor.getItemMeta() instanceof Damageable) {
+                            Damageable damageable = (Damageable) armor.getItemMeta();
+                            int currentDamage = damageable.getDamage();
+                            int maxDurability = armor.getType().getMaxDurability();
+
+                            if (maxDurability > 0 && currentDamage < maxDurability) {
+                                damageable.setDamage(currentDamage + 2); // 2x faster degradation
+                                armor.setItemMeta((ItemMeta) damageable);
+                                armorDamaged = true;
+                            }
                         }
                     }
                 }
@@ -524,12 +566,68 @@ public class AbilityListener implements Listener {
             }
         };
 
-        task.runTaskTimer(plugin, damageInterval, damageInterval);
+        task.runTaskTimer(plugin, 100, 100); // Every 5 seconds
         copperArmorTasks.put(player.getUniqueId(), task);
     }
 
-    private void stopArmorDurabilityTimer(Player player) {
+    private void stopCopperArmorDurabilityTimer(Player player) {
         BukkitRunnable task = copperArmorTasks.remove(player.getUniqueId());
+        if (task != null) {
+            task.cancel();
+        }
+    }
+
+    // FIXED: Diamond armor protection timer (2x slower breaking)
+    private void startDiamondArmorProtectionTimer(Player player) {
+        stopDiamondArmorProtectionTimer(player);
+
+        BukkitRunnable task = new BukkitRunnable() {
+            private int skipCounter = 0;
+
+            @Override
+            public void run() {
+                PlayerDataManager dataManager = plugin.getPlayerDataManager();
+                if (dataManager.getPlayerOre(player) != OreType.DIAMOND || !player.isOnline()) {
+                    cancel();
+                    diamondArmorTasks.remove(player.getUniqueId());
+                    return;
+                }
+
+                // Skip every other damage tick to make armor last 2x longer
+                skipCounter++;
+                if (skipCounter % 2 == 0) {
+                    // Repair armor slightly to counteract normal damage
+                    ItemStack[] armorContents = player.getInventory().getArmorContents();
+                    boolean armorRepaired = false;
+
+                    for (ItemStack armor : armorContents) {
+                        if (armor != null && armor.getType() != Material.AIR) {
+                            if (armor.getItemMeta() instanceof Damageable) {
+                                Damageable damageable = (Damageable) armor.getItemMeta();
+                                int currentDamage = damageable.getDamage();
+
+                                if (currentDamage > 0) {
+                                    damageable.setDamage(Math.max(0, currentDamage - 1));
+                                    armor.setItemMeta((ItemMeta) damageable);
+                                    armorRepaired = true;
+                                }
+                            }
+                        }
+                    }
+
+                    if (armorRepaired) {
+                        player.getInventory().setArmorContents(armorContents);
+                    }
+                }
+            }
+        };
+
+        task.runTaskTimer(plugin, 100, 100); // Every 5 seconds
+        diamondArmorTasks.put(player.getUniqueId(), task);
+    }
+
+    private void stopDiamondArmorProtectionTimer(Player player) {
+        BukkitRunnable task = diamondArmorTasks.remove(player.getUniqueId());
         if (task != null) {
             task.cancel();
         }
@@ -581,10 +679,20 @@ public class AbilityListener implements Listener {
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
         OreType oreType = dataManager.getPlayerOre(player);
 
-        // FIXED: Lapis prevents using anvils entirely
+        // FIXED: Lapis can use anvils without using XP levels
         if (oreType == OreType.LAPIS && event.getInventory().getType().name().contains("ANVIL")) {
-            event.setCancelled(true);
-            player.sendMessage("§cLapis prevents you from using anvils!");
+            // Allow anvil use but restore XP after
+            new BukkitRunnable() {
+                int originalLevel = player.getLevel();
+                float originalExp = player.getExp();
+
+                @Override
+                public void run() {
+                    player.setLevel(originalLevel);
+                    player.setExp(originalExp);
+                    player.sendMessage("§9Lapis blessing! No XP consumed for anvil use!");
+                }
+            }.runTaskLater(plugin, 1);
         }
     }
 
@@ -619,15 +727,6 @@ public class AbilityListener implements Listener {
         }
     }
 
-    private boolean isToolWeaponOrArmor(Material material) {
-        String name = material.name();
-        return name.contains("_SWORD") || name.contains("_AXE") ||
-                name.contains("_PICKAXE") || name.contains("_SHOVEL") ||
-                name.contains("_HOE") || name.contains("_HELMET") ||
-                name.contains("_CHESTPLATE") || name.contains("_LEGGINGS") ||
-                name.contains("_BOOTS");
-    }
-
     @EventHandler
     public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
         Player player = event.getPlayer();
@@ -641,9 +740,65 @@ public class AbilityListener implements Listener {
         }
     }
 
+    @EventHandler
+    public void onPlayerItemBreak(PlayerItemBreakEvent event) {
+        Player player = event.getPlayer();
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        OreType oreType = dataManager.getPlayerOre(player);
+
+        // FIXED: Dirt ore makes leather armor unbreakable
+        if (oreType == OreType.DIRT) {
+            ItemStack brokenItem = event.getBrokenItem();
+            if (brokenItem.getType().name().contains("LEATHER")) {
+                // Give them a new leather armor piece
+                ItemStack replacement = new ItemStack(brokenItem.getType());
+                if (brokenItem.hasItemMeta()) {
+                    replacement.setItemMeta(brokenItem.getItemMeta());
+                }
+
+                // Add to inventory or drop if full
+                if (player.getInventory().firstEmpty() != -1) {
+                    player.getInventory().addItem(replacement);
+                } else {
+                    player.getWorld().dropItemNaturally(player.getLocation(), replacement);
+                }
+
+                player.sendMessage("§6Dirt blessing! Your leather armor was instantly replaced!");
+            }
+        }
+    }
+
+    @EventHandler
+    public void onPlayerArmorStandManipulate(PlayerArmorStandManipulateEvent event) {
+        // Check for dirt ore effects when armor changes
+        Player player = event.getPlayer();
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        OreType oreType = dataManager.getPlayerOre(player);
+
+        if (oreType == OreType.DIRT) {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    checkAndApplyDirtArmor(player);
+                    checkAndApplyDirtMiningFatigue(player);
+                }
+            }.runTaskLater(plugin, 1);
+        }
+    }
+
+    private boolean isToolWeaponOrArmor(Material material) {
+        String name = material.name();
+        return name.contains("_SWORD") || name.contains("_AXE") ||
+                name.contains("_PICKAXE") || name.contains("_SHOVEL") ||
+                name.contains("_HOE") || name.contains("_HELMET") ||
+                name.contains("_CHESTPLATE") || name.contains("_LEGGINGS") ||
+                name.contains("_BOOTS");
+    }
+
     // Cleanup method for player logout
     public void cleanup(Player player) {
         lastWaterDamageTime.remove(player.getUniqueId());
-        stopArmorDurabilityTimer(player);
+        stopCopperArmorDurabilityTimer(player);
+        stopDiamondArmorProtectionTimer(player);
     }
 }

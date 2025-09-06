@@ -1,9 +1,11 @@
 hs\orePlugin\AbilityListener$5.class
+hs\orePlugin\PlayerListener$3.class
 hs\orePlugin\ActionBarManager$2.class
 hs\orePlugin\OreAbilitiesPlugin.class
 hs\orePlugin\RecipeManager$1.class
 hs\orePlugin\AbilityListener$3.class
 hs\orePlugin\AbilityManager$5.class
+hs\orePlugin\AbilityListener$10.class
 hs\orePlugin\AbilityListener$7.class
 hs\orePlugin\RecipeManager.class
 hs\orePlugin\AbilityListener.class
@@ -14,6 +16,7 @@ hs\orePlugin\PlayerListener.class
 hs\orePlugin\AbilityListener$1.class
 hs\orePlugin\AbilityListener$4.class
 hs\orePlugin\AbilityManager$3.class
+hs\orePlugin\AbilityListener$9.class
 hs\orePlugin\OreType.class
 hs\orePlugin\ActionBarManager$1.class
 hs\orePlugin\AbilityManager$4.class
@@ -24,12 +27,14 @@ hs\orePlugin\AbilityManager.class
 hs\orePlugin\PlayerListener$2.class
 hs\orePlugin\AbilityManager$9.class
 hs\orePlugin\OreAbilitiesCommand$1.class
+hs\orePlugin\PlayerListener$4.class
 hs\orePlugin\OreItemListener$1.class
 hs\orePlugin\PlayerDataManager.class
 hs\orePlugin\TrustCommand.class
 hs\orePlugin\TrustManager.class
 hs\orePlugin\AbilityListener$2.class
 hs\orePlugin\AbilityManager$2.class
+hs\orePlugin\AbilityListener$8.class
 hs\orePlugin\AbilityActivationManager.class
 hs\orePlugin\ActionBarManager.class
 hs\orePlugin\OreAbilitiesCommand.class
