@@ -94,7 +94,7 @@ coal:
   # Damage interval while in water (in milliseconds)
   water-damage-interval: 2000
 
-# Messages (can be customized)
+# Messages (can be customized) - FIXED: Proper color code format
 messages:
   no-permission: "&cYou don't have permission to use this command!"
   player-not-found: "&cPlayer not found or not online!"
@@ -107,3 +107,11 @@ messages:
   redstone-jump-prevent: "&4You cannot jump for 10 seconds!"
   amethyst-crystal-mode: "&dCrystal mode activated - No damage or knockback!"
   gold-durability-curse: "&6Gold curse! Item durability randomized!"
+  emerald-weakness-warning: "&cEmerald curse! You need at least 4 stacks of emeralds!"
+  emerald-weakness-removed: "&aEmerald blessing! Weakness removed!"
+  diamond-ore-prevented: "&cDiamond curse prevented ore drop!"
+  netherite-ancient-debris: "&4Netherite blessing! Ancient debris became netherite ingot!"
+  lapis-anvil-blessing: "&9Lapis blessing! No levels required for anvil use!"
+  lapis-levels-restored: "&9Lapis blessing! Your levels have been restored!"
+  lapis-villager-blocked: "&cLapis prevents you from trading with villagers!"
+  no-ore-type: "&cYou don't have an ore type assigned!"

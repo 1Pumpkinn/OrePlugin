@@ -26,6 +26,7 @@ public class PlayerListener implements Listener {
     private final OreAbilitiesPlugin plugin;
     private final Map<UUID, Long> lastMoveCheck = new HashMap<>();
     private final Map<UUID, Boolean> wasOnStone = new HashMap<>();
+    private final Map<UUID, Long> emeraldWeaknessCheck = new HashMap<>();
     private final Random random = new Random();
 
     public PlayerListener(OreAbilitiesPlugin plugin) {
@@ -55,7 +56,7 @@ public class PlayerListener implements Listener {
         // Apply passive effects based on ore type
         applyPassiveEffects(player);
 
-        // FIXED: Start persistent timers for Iron and Amethyst users
+        // Start persistent timers for Iron and Amethyst users
         plugin.getAbilityManager().restartPlayerTimers(player);
 
         // Start action bar for the player
@@ -68,8 +69,11 @@ public class PlayerListener implements Listener {
         // Stop action bar display
         plugin.getActionBarManager().stopActionBar(player);
 
-        // FIXED: Clean up timers when player leaves
+        // Clean up timers when player leaves
         plugin.getAbilityManager().cleanup(player);
+
+        // Clean up emerald weakness check
+        emeraldWeaknessCheck.remove(player.getUniqueId());
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -93,6 +97,42 @@ public class PlayerListener implements Listener {
         loc.add(0, 1, 0); // Reset location
 
         handleMovementEffects(player, oreType, blockBelow.getType());
+
+        // FIXED: Check emerald weakness every few seconds
+        if (oreType == OreType.EMERALD) {
+            handleEmeraldWeakness(player);
+        }
+    }
+
+    private void handleEmeraldWeakness(Player player) {
+        UUID uuid = player.getUniqueId();
+        long currentTime = System.currentTimeMillis();
+
+        // Check every 5 seconds
+        if (!emeraldWeaknessCheck.containsKey(uuid) ||
+                currentTime - emeraldWeaknessCheck.get(uuid) > 5000) {
+
+            emeraldWeaknessCheck.put(uuid, currentTime);
+
+            // Check if player has at least 4 stacks of emeralds
+            int emeraldCount = 0;
+            for (ItemStack item : player.getInventory().getContents()) {
+                if (item != null && item.getType() == Material.EMERALD) {
+                    emeraldCount += item.getAmount();
+                }
+            }
+
+            boolean hasEnoughEmeralds = emeraldCount >= 256; // 4 stacks of 64
+            boolean hasWeakness = player.hasPotionEffect(PotionEffectType.WEAKNESS);
+
+            if (!hasEnoughEmeralds && !hasWeakness) {
+                player.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, Integer.MAX_VALUE, 0, false, false));
+                player.sendMessage("§cEmerald curse! You need at least 4 stacks of emeralds or you'll have weakness!");
+            } else if (hasEnoughEmeralds && hasWeakness) {
+                player.removePotionEffect(PotionEffectType.WEAKNESS);
+                player.sendMessage("§aEmerald blessing! Weakness removed - you have enough emeralds!");
+            }
+        }
     }
 
     @EventHandler
@@ -112,12 +152,13 @@ public class PlayerListener implements Listener {
             player.sendMessage("§6Apple enhanced by Wood ore!");
         }
 
-        // Gold ore - golden apples give 2x absorption
+        // FIXED: Gold ore - golden apples give 2x absorption
         if (oreType == OreType.GOLD && item.getType() == Material.GOLDEN_APPLE) {
             new BukkitRunnable() {
                 @Override
                 public void run() {
                     player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 2400, 1)); // Extra absorption
+                    player.sendMessage("§6Gold ore enhanced your golden apple!");
                 }
             }.runTaskLater(plugin, 1); // Slight delay to apply after normal golden apple effect
         }
@@ -131,16 +172,27 @@ public class PlayerListener implements Listener {
 
         if (oreType == null) return;
 
-        // Diamond ore downside - 50% chance to not drop ore
-        if (oreType == OreType.DIAMOND && isOre(event.getBlock().getType())) {
+        Material blockType = event.getBlock().getType();
+
+        // FIXED: Diamond ore downside - 50% chance to not drop ore
+        if (oreType == OreType.DIAMOND && isOre(blockType)) {
             if (random.nextDouble() < 0.5) {
                 event.setDropItems(false);
                 player.sendMessage("§cDiamond curse prevented ore drop!");
             }
         }
 
-        // REMOVED iron drop check here - it's now handled by timer in AbilityManager
+        // FIXED: Netherite upside - ancient debris turns into netherite ingots
+        if (oreType == OreType.NETHERITE && blockType == Material.ANCIENT_DEBRIS) {
+            event.setDropItems(false); // Cancel normal drops
+            ItemStack netheriteIngot = new ItemStack(Material.NETHERITE_INGOT, 1);
+            event.getBlock().getWorld().dropItemNaturally(event.getBlock().getLocation(), netheriteIngot);
+            player.sendMessage("§4Netherite blessing! Ancient debris became a netherite ingot!");
+            player.playSound(player.getLocation(), Sound.BLOCK_ANCIENT_DEBRIS_BREAK, 1.0f, 0.5f);
+        }
     }
+
+
 
     private void handleMovementEffects(Player player, OreType oreType, Material blockBelow) {
         UUID uuid = player.getUniqueId();
@@ -154,10 +206,12 @@ public class PlayerListener implements Listener {
                     // Just stepped on stone - apply effects
                     player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, Integer.MAX_VALUE, 0));
                     player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 0));
+                    player.sendMessage("§7Stone blessing activated! Regeneration while on stone.");
                 } else if (!isOnStone && wasOnStonePreviously != null && wasOnStonePreviously) {
                     // Just stepped off stone - remove effects
                     player.removePotionEffect(PotionEffectType.REGENERATION);
                     player.removePotionEffect(PotionEffectType.SLOWNESS);
+                    player.sendMessage("§7Stone blessing ended.");
                 }
 
                 wasOnStone.put(uuid, isOnStone);
@@ -172,7 +226,7 @@ public class PlayerListener implements Listener {
 
         switch (oreType) {
             case IRON:
-                // Permanent +2 armor attribute
+                // FIXED: Permanent +2 armor attribute
                 AttributeInstance armor = player.getAttribute(Attribute.ARMOR);
                 if (armor != null) {
                     armor.setBaseValue(armor.getBaseValue() + 2);
@@ -185,13 +239,15 @@ public class PlayerListener implements Listener {
                 break;
 
             case AMETHYST:
-                // FIXED: Start persistent glowing effect
+                // Start persistent glowing effect immediately
                 plugin.getAbilityManager().startAmethystGlowing(player);
                 break;
 
             case EMERALD:
-                // Infinite hero of the village
-                player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9));
+                // FIXED: Infinite hero of the village AND check emerald requirement
+                player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9, false, false));
+                // Initial emerald weakness check
+                handleEmeraldWeakness(player);
                 break;
         }
     }
@@ -203,29 +259,7 @@ public class PlayerListener implements Listener {
     }
 
     private boolean isOre(Material material) {
-        return material.name().contains("_ORE") || material.name().contains("RAW_");
-    }
-
-    private void dropRandomInventoryItem(Player player) {
-        ItemStack[] contents = player.getInventory().getContents();
-        for (int i = contents.length - 1; i >= 0; i--) { // Start from end to avoid hotbar
-            if (contents[i] != null && contents[i].getType() != Material.AIR) {
-                ItemStack toDrop = contents[i].clone();
-                toDrop.setAmount(1);
-
-                player.getWorld().dropItemNaturally(player.getLocation(), toDrop);
-
-                if (contents[i].getAmount() > 1) {
-                    contents[i].setAmount(contents[i].getAmount() - 1);
-                } else {
-                    contents[i] = null;
-                }
-
-                player.getInventory().setContents(contents);
-                player.sendMessage("§cIron curse! An item was dropped from your inventory!");
-                player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1.0f, 0.5f);
-                return;
-            }
-        }
+        return material.name().contains("_ORE") || material.name().contains("RAW_") ||
+                material == Material.ANCIENT_DEBRIS;
     }
 }

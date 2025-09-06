@@ -11,6 +11,9 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
+import org.bukkit.ChatColor;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -37,6 +40,8 @@ public class AbilityManager {
             long remaining = dataManager.getRemainingCooldown(player);
             String message = configs != null ? configs.getMessage("ability-on-cooldown", "time", String.valueOf(remaining))
                     : "§cAbility on cooldown! " + remaining + " seconds remaining.";
+            // FIXED: Ensure color codes are properly applied
+            message = ChatColor.translateAlternateColorCodes('&', message);
             player.sendMessage(message);
             return false;
         }
@@ -44,9 +49,15 @@ public class AbilityManager {
         OreType oreType = dataManager.getPlayerOre(player);
         if (oreType == null) {
             String message = configs != null ? configs.getMessage("no-ore-type")
-                    : "&cYou don't have an ore type assigned!";
+                    : "§cYou don't have an ore type assigned!";
+            message = ChatColor.translateAlternateColorCodes('&', message);
             player.sendMessage(message);
             return false;
+        }
+
+        // Check emerald downside - need at least 4 stacks of emeralds
+        if (oreType == OreType.EMERALD && !hasRequiredEmeralds(player)) {
+            player.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, Integer.MAX_VALUE, 0, false, false));
         }
 
         // Check if ore type is enabled
@@ -65,6 +76,16 @@ public class AbilityManager {
         plugin.getActionBarManager().updateCooldownDisplay(player);
 
         return true;
+    }
+
+    private boolean hasRequiredEmeralds(Player player) {
+        int emeraldCount = 0;
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null && item.getType() == Material.EMERALD) {
+                emeraldCount += item.getAmount();
+            }
+        }
+        return emeraldCount >= 256; // 4 stacks of 64
     }
 
     private void executeAbility(Player player, OreType oreType) {
@@ -165,7 +186,7 @@ public class AbilityManager {
     }
 
     private void copperAbility(Player player) {
-        // FIXED: Auto-enchant held trident with Channeling at ability start
+        // Auto-enchant held trident with Channeling at ability start
         ItemStack handItem = player.getInventory().getItemInMainHand();
         if (handItem != null && handItem.getType() == Material.TRIDENT) {
             ItemMeta meta = handItem.getItemMeta();
@@ -244,6 +265,12 @@ public class AbilityManager {
     }
 
     private void emeraldAbility(Player player) {
+        // FIXED: Check emerald requirement before giving effects
+        if (!hasRequiredEmeralds(player)) {
+            player.sendMessage("§cYou need at least 4 stacks of emeralds to use this ability!");
+            return;
+        }
+
         // All beacon effects level 1 for 20 seconds
         PotionEffectType[] beaconEffects = {
                 PotionEffectType.SPEED, PotionEffectType.HASTE, PotionEffectType.RESISTANCE,
@@ -276,7 +303,7 @@ public class AbilityManager {
         ItemStack weapon = player.getInventory().getItemInMainHand();
         if (weapon != null && weapon.getType() == Material.DIAMOND_SWORD) {
             activeEffects.put(player.getUniqueId(), true);
-            player.sendMessage("§bGleaming Power activated! Diamond sword deals 2x damage for 5 seconds!");
+            player.sendMessage("§bGleaming Power activated! Diamond sword deals 1.4x damage for 5 seconds!");
             player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 2.0f);
 
             new BukkitRunnable() {
@@ -311,7 +338,7 @@ public class AbilityManager {
         player.playSound(player.getLocation(), Sound.UI_STONECUTTER_TAKE_RESULT, 1.0f, 0.5f);
     }
 
-    // FIXED: Iron drop timer implementation
+    // FIXED: Iron drop timer implementation with proper minute intervals
     public void startIronDropTimer(Player player) {
         UUID uuid = player.getUniqueId();
 
@@ -324,7 +351,7 @@ public class AbilityManager {
         // Get the interval from config (in minutes)
         OreConfigs configs = plugin.getOreConfigs();
         int intervalMinutes = configs != null ? configs.getIronDropInterval() : 10;
-        long intervalTicks = intervalMinutes * 60 * 20L; // Convert minutes to ticks (20 ticks = 1 second)
+        long intervalTicks = intervalMinutes * 60 * 20L; // Convert minutes to ticks (20 ticks = 1 second, 60 seconds = 1 minute)
 
         plugin.getLogger().info("Starting Iron drop timer for " + player.getName() + " - interval: " + intervalMinutes + " minutes (" + intervalTicks + " ticks)");
 
@@ -404,12 +431,15 @@ public class AbilityManager {
         plugin.getLogger().info("Iron drop successful for " + player.getName() + " - dropped " + itemToDrop.getType().name());
     }
 
-    // FIXED: Amethyst permanent glowing implementation
+    // FIXED: Amethyst permanent glowing implementation with purple color
     public void startAmethystGlowing(Player player) {
         UUID uuid = player.getUniqueId();
 
+        // Create or get purple team for amethyst players
+        setupAmethystTeam(player);
+
         // Apply initial glowing effect
-        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0, false, false));
 
         // Cancel existing task if any
         if (amethystGlowTasks.containsKey(uuid)) {
@@ -435,12 +465,30 @@ public class AbilityManager {
 
                 // Reapply glowing if it's not active
                 if (!player.hasPotionEffect(PotionEffectType.GLOWING)) {
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0, false, false));
                 }
+
+                // Ensure player is still in purple team
+                setupAmethystTeam(player);
             }
         }.runTaskTimer(plugin, 600L, 600L); // Every 30 seconds
 
         amethystGlowTasks.put(uuid, task);
+    }
+
+    private void setupAmethystTeam(Player player) {
+        Scoreboard scoreboard = player.getServer().getScoreboardManager().getMainScoreboard();
+        Team amethystTeam = scoreboard.getTeam("amethyst");
+
+        if (amethystTeam == null) {
+            amethystTeam = scoreboard.registerNewTeam("amethyst");
+            amethystTeam.setColor(ChatColor.DARK_PURPLE);
+            amethystTeam.setDisplayName("§5Amethyst");
+        }
+
+        if (!amethystTeam.hasEntry(player.getName())) {
+            amethystTeam.addEntry(player.getName());
+        }
     }
 
     public void cancelAmethystGlowing(Player player) {
@@ -450,6 +498,13 @@ public class AbilityManager {
             amethystGlowTasks.remove(uuid);
         }
         player.removePotionEffect(PotionEffectType.GLOWING);
+
+        // Remove from amethyst team
+        Scoreboard scoreboard = player.getServer().getScoreboardManager().getMainScoreboard();
+        Team amethystTeam = scoreboard.getTeam("amethyst");
+        if (amethystTeam != null && amethystTeam.hasEntry(player.getName())) {
+            amethystTeam.removeEntry(player.getName());
+        }
     }
 
     public boolean hasActiveEffect(Player player) {
@@ -478,6 +533,8 @@ public class AbilityManager {
             case WET_SPONGE: return Material.SPONGE;
             case CACTUS: return Material.GREEN_DYE;
             case KELP: return Material.DRIED_KELP;
+            // FIXED: Add ancient debris to netherite ingot conversion
+            case ANCIENT_DEBRIS: return Material.NETHERITE_INGOT;
             default: return null;
         }
     }

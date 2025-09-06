@@ -5,6 +5,7 @@ import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.ChatColor;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -68,10 +69,11 @@ public class ActionBarManager {
         StringBuilder message = new StringBuilder();
 
         String oreColor = getOreColor(oreType);
+        String oreEmoji = getOreEmoji(oreType);
         String oreName = oreType.getDisplayName();
 
-        // Ore type and ability name
-        message.append(oreColor).append("⚡ ").append(oreName).append(" Ore");
+        // Ore type and ability name with emoji
+        message.append(oreColor).append(oreEmoji).append(" ").append(oreName).append(" Ore");
 
         String abilityName = getAbilityName(oreType);
         if (abilityName != null) {
@@ -95,6 +97,25 @@ public class ActionBarManager {
         }
 
         return message.toString();
+    }
+
+    private String getOreEmoji(OreType oreType) {
+        switch (oreType) {
+            case DIRT: return "🌱";
+            case WOOD: return "🪵";
+            case STONE: return "🗿";
+            case COAL: return "🔥";
+            case COPPER: return "⚡";
+            case IRON: return "🪣";
+            case GOLD: return "⛏";
+            case REDSTONE: return "🟢";
+            case LAPIS: return "🔷";
+            case EMERALD: return "✨";
+            case AMETHYST: return "💎";
+            case DIAMOND: return "🗡";
+            case NETHERITE: return "💥";
+            default: return "⚡";
+        }
     }
 
     private String createProgressBar(long remaining, int totalCooldown) {
@@ -145,6 +166,8 @@ public class ActionBarManager {
     }
 
     private void sendActionBar(Player player, String message) {
+        // Convert color codes properly
+        message = ChatColor.translateAlternateColorCodes('&', message);
         player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(message));
     }
 
