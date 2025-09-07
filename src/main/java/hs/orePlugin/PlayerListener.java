@@ -54,11 +54,11 @@ public class PlayerListener implements Listener {
             }
         }
 
-        // Apply ALL passive effects immediately upon join
+        // FIXED: Apply ALL passive effects immediately upon join with proper method calls
         new BukkitRunnable() {
             @Override
             public void run() {
-                applyAllPassiveEffects(player);
+                applyAllPassiveEffectsFixed(player);
                 plugin.getAbilityManager().restartPlayerTimers(player);
             }
         }.runTaskLater(plugin, 5); // Small delay to ensure player is fully loaded
@@ -71,6 +71,7 @@ public class PlayerListener implements Listener {
         Player player = event.getPlayer();
         plugin.getActionBarManager().stopActionBar(player);
         plugin.getAbilityManager().cleanup(player);
+        plugin.getAbilityListener().cleanup(player);  // FIXED: Also cleanup AbilityListener
         emeraldWeaknessCheck.remove(player.getUniqueId());
         dirtArmorCheck.remove(player.getUniqueId());
         lastMoveCheck.remove(player.getUniqueId());
@@ -298,8 +299,8 @@ public class PlayerListener implements Listener {
         }
     }
 
-    // FIXED: Apply ALL passive effects immediately and correctly
-    private void applyAllPassiveEffects(Player player) {
+    // FIXED: Apply ALL passive effects immediately and correctly with proper method calls
+    private void applyAllPassiveEffectsFixed(Player player) {
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
         OreType oreType = dataManager.getPlayerOre(player);
         if (oreType == null) return;
@@ -319,6 +320,8 @@ public class PlayerListener implements Listener {
                 if (armor != null) {
                     armor.setBaseValue(armor.getBaseValue() + 2);
                 }
+                // FIXED: Start the iron drop timer properly
+                plugin.getAbilityManager().startIronDropTimer(player);
                 player.sendMessage("§fIron ore effects applied! +2 armor and random item drops!");
                 break;
 
@@ -329,7 +332,8 @@ public class PlayerListener implements Listener {
                 break;
 
             case AMETHYST:
-                // Start persistent glowing effect immediately
+                // FIXED: Start persistent glowing effect immediately with proper method call
+                plugin.getAbilityManager().startAmethystGlowing(player);
                 player.sendMessage("§dAmethyst ore effects applied! Permanent purple glowing!");
                 break;
 
@@ -342,10 +346,14 @@ public class PlayerListener implements Listener {
                 break;
 
             case COPPER:
+                // FIXED: Start copper armor durability timer
+                plugin.getAbilityListener().startCopperArmorDurabilityTimer(player);
                 player.sendMessage("§cCopper ore effects applied! Lightning immunity + armor breaks 2x faster!");
                 break;
 
             case DIAMOND:
+                // FIXED: Start diamond armor protection timer
+                plugin.getAbilityListener().startDiamondArmorProtectionTimer(player);
                 player.sendMessage("§bDiamond ore effects applied! Armor lasts 2x longer + 50% ore drop fail!");
                 break;
 

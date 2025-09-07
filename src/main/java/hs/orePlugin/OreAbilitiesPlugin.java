@@ -11,6 +11,7 @@ public class OreAbilitiesPlugin extends JavaPlugin {
     private static OreAbilitiesPlugin instance;
     private PlayerDataManager playerDataManager;
     private AbilityManager abilityManager;
+    private AbilityListener abilityListener;  // ADDED: Reference to AbilityListener
     private TrustManager trustManager;
     private ActionBarManager actionBarManager;
     private AbilityActivationManager activationManager;
@@ -35,6 +36,7 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         // Initialize managers
         playerDataManager = new PlayerDataManager(this);
         abilityManager = new AbilityManager(this);
+        abilityListener = new AbilityListener(this);  // ADDED: Initialize AbilityListener
         trustManager = new TrustManager(this);
         actionBarManager = new ActionBarManager(this);
         activationManager = new AbilityActivationManager(this);
@@ -45,7 +47,7 @@ public class OreAbilitiesPlugin extends JavaPlugin {
 
         // Register events
         getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
-        getServer().getPluginManager().registerEvents(new AbilityListener(this), this);
+        getServer().getPluginManager().registerEvents(abilityListener, this);  // CHANGED: Use instance
         // Note: OreItemListener is no longer needed since ore switching happens through crafting
         getServer().getPluginManager().registerEvents(activationManager, this);
 
@@ -115,7 +117,6 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         return 10; // Coal, Copper, Iron, Gold, Redstone, Lapis, Emerald, Amethyst, Diamond, Netherite
     }
 
-
     // Reload method for admin commands
     public void reloadPlugin() {
         // Reload config
@@ -142,6 +143,10 @@ public class OreAbilitiesPlugin extends JavaPlugin {
 
     public AbilityManager getAbilityManager() {
         return abilityManager;
+    }
+
+    public AbilityListener getAbilityListener() {  // ADDED: Getter for AbilityListener
+        return abilityListener;
     }
 
     public TrustManager getTrustManager() {

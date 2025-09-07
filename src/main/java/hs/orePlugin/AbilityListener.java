@@ -333,12 +333,12 @@ public class AbilityListener implements Listener {
 
             // FIXED: Remove ALL old ore effects before applying new ones
             if (currentOreType != null) {
-                removeAllOreTypeEffects(player, currentOreType);
+                removeAllOreTypeEffectsFixed(player, currentOreType);
                 player.sendMessage("§e⚠ Replacing your " + currentOreType.getDisplayName() + " ore ability!");
             }
 
             dataManager.setPlayerOre(player, newOreType);
-            applyAllOreTypeEffects(player, newOreType);
+            applyAllOreTypeEffectsFixed(player, newOreType);
 
             String oreColor = getOreColor(newOreType);
             player.sendMessage("§a✓ Successfully mastered the " + oreColor + newOreType.getDisplayName() + " §aore!");
@@ -391,8 +391,8 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // FIXED: Complete ore type effect management
-    private void applyAllOreTypeEffects(Player player, OreType oreType) {
+    // FIXED: Complete and comprehensive ore type effect application
+    private void applyAllOreTypeEffectsFixed(Player player, OreType oreType) {
         switch (oreType) {
             case DIRT:
                 // FIXED: Dirt gets diamond-level armor protection (20 armor points) but only with full leather armor
@@ -423,8 +423,8 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // FIXED: Complete ore type effect removal
-    private void removeAllOreTypeEffects(Player player, OreType oreType) {
+    // FIXED: Complete and comprehensive ore type effect removal
+    private void removeAllOreTypeEffectsFixed(Player player, OreType oreType) {
         switch (oreType) {
             case DIRT:
                 // Remove all dirt effects
@@ -461,7 +461,8 @@ public class AbilityListener implements Listener {
                 player.removePotionEffect(PotionEffectType.SLOWNESS);
                 break;
             case COAL:
-                // No persistent effects to remove for coal
+                // Remove coal water damage tracking
+                lastWaterDamageTime.remove(player.getUniqueId());
                 break;
             case NETHERITE:
                 // No persistent effects to remove for netherite
@@ -526,8 +527,8 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // FIXED: Copper armor durability timer (2x faster breaking)
-    private void startCopperArmorDurabilityTimer(Player player) {
+    // FIXED: Copper armor durability timer (2x faster breaking) - Made public so other classes can access
+    public void startCopperArmorDurabilityTimer(Player player) {
         stopCopperArmorDurabilityTimer(player);
 
         BukkitRunnable task = new BukkitRunnable() {
@@ -570,15 +571,16 @@ public class AbilityListener implements Listener {
         copperArmorTasks.put(player.getUniqueId(), task);
     }
 
-    private void stopCopperArmorDurabilityTimer(Player player) {
+    // FIXED: Made public so other classes can access
+    public void stopCopperArmorDurabilityTimer(Player player) {
         BukkitRunnable task = copperArmorTasks.remove(player.getUniqueId());
         if (task != null) {
             task.cancel();
         }
     }
 
-    // FIXED: Diamond armor protection timer (2x slower breaking)
-    private void startDiamondArmorProtectionTimer(Player player) {
+    // FIXED: Diamond armor protection timer (2x slower breaking) - Made public so other classes can access
+    public void startDiamondArmorProtectionTimer(Player player) {
         stopDiamondArmorProtectionTimer(player);
 
         BukkitRunnable task = new BukkitRunnable() {
@@ -626,7 +628,8 @@ public class AbilityListener implements Listener {
         diamondArmorTasks.put(player.getUniqueId(), task);
     }
 
-    private void stopDiamondArmorProtectionTimer(Player player) {
+    // FIXED: Made public so other classes can access
+    public void stopDiamondArmorProtectionTimer(Player player) {
         BukkitRunnable task = diamondArmorTasks.remove(player.getUniqueId());
         if (task != null) {
             task.cancel();
