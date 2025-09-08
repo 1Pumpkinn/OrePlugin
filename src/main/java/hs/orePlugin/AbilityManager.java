@@ -158,8 +158,8 @@ public class AbilityManager {
     }
 
     private void stoneAbility(Player player) {
-        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 200, 0)); // Resistance 1 for 10s
-        player.sendMessage("§7Stone Skin activated! Resistance 1 for 10 seconds!");
+        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 100, 0));
+        player.sendMessage("§7Stone Skin activated! Resistance 1 for 5 seconds!");
         player.playSound(player.getLocation(), Sound.BLOCK_STONE_BREAK, 1.0f, 1.0f);
     }
 

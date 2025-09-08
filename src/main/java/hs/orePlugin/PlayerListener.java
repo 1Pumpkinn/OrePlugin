@@ -71,11 +71,39 @@ public class PlayerListener implements Listener {
         Player player = event.getPlayer();
         plugin.getActionBarManager().stopActionBar(player);
         plugin.getAbilityManager().cleanup(player);
-        plugin.getAbilityListener().cleanup(player);  // FIXED: Also cleanup AbilityListener
+        plugin.getAbilityListener().cleanup(player);
+
         emeraldWeaknessCheck.remove(player.getUniqueId());
         dirtArmorCheck.remove(player.getUniqueId());
         lastMoveCheck.remove(player.getUniqueId());
         wasOnStone.remove(player.getUniqueId());
+    }
+
+    public void cleanupPlayerEffects(Player player, OreType oreType) {
+        UUID uuid = player.getUniqueId();
+
+        // Clean up tracking for all ore types
+        emeraldWeaknessCheck.remove(uuid);
+        dirtArmorCheck.remove(uuid);
+        wasOnStone.remove(uuid);
+
+        // Remove specific effects based on ore type
+        switch (oreType) {
+            case DIRT:
+                player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
+                break;
+            case STONE:
+                player.removePotionEffect(PotionEffectType.REGENERATION);
+                player.removePotionEffect(PotionEffectType.SLOWNESS);
+                break;
+            case EMERALD:
+                player.removePotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE);
+                player.removePotionEffect(PotionEffectType.WEAKNESS);
+                break;
+            case AMETHYST:
+                player.removePotionEffect(PotionEffectType.GLOWING);
+                break;
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH)

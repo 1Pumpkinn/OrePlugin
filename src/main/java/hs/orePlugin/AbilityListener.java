@@ -423,17 +423,17 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // FIXED: Complete and comprehensive ore type effect removal
     private void removeAllOreTypeEffectsFixed(Player player, OreType oreType) {
         switch (oreType) {
             case DIRT:
-                // Remove all dirt effects
+                // FIXED: Remove all dirt effects completely
                 player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
                 // Reset armor to normal
                 AttributeInstance dirtArmor = player.getAttribute(Attribute.ARMOR);
                 if (dirtArmor != null) {
                     dirtArmor.setBaseValue(0); // Reset to default
                 }
+                player.sendMessage("§7Dirt ore effects removed.");
                 break;
             case IRON:
                 AttributeInstance armorAttribute = player.getAttribute(Attribute.ARMOR);
@@ -442,42 +442,55 @@ public class AbilityListener implements Listener {
                     armorAttribute.setBaseValue(Math.max(0, currentBase - 2));
                 }
                 plugin.getAbilityManager().cancelIronDropTimer(player);
+                player.sendMessage("§7Iron ore effects removed.");
                 break;
             case AMETHYST:
                 plugin.getAbilityManager().cancelAmethystGlowing(player);
+                player.sendMessage("§7Amethyst ore effects removed.");
                 break;
             case EMERALD:
                 player.removePotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE);
                 player.removePotionEffect(PotionEffectType.WEAKNESS);
+                player.sendMessage("§7Emerald ore effects removed.");
                 break;
             case COPPER:
                 stopCopperArmorDurabilityTimer(player);
+                player.sendMessage("§7Copper ore effects removed.");
                 break;
             case DIAMOND:
                 stopDiamondArmorProtectionTimer(player);
+                player.sendMessage("§7Diamond ore effects removed.");
                 break;
             case STONE:
+                // FIXED: Properly remove stone effects
                 player.removePotionEffect(PotionEffectType.REGENERATION);
                 player.removePotionEffect(PotionEffectType.SLOWNESS);
+                player.sendMessage("§7Stone ore effects removed.");
                 break;
             case COAL:
                 // Remove coal water damage tracking
                 lastWaterDamageTime.remove(player.getUniqueId());
+                player.sendMessage("§7Coal ore effects removed.");
                 break;
             case NETHERITE:
                 // No persistent effects to remove for netherite
+                player.sendMessage("§7Netherite ore effects removed.");
                 break;
             case REDSTONE:
                 // No persistent effects to remove for redstone
+                player.sendMessage("§7Redstone ore effects removed.");
                 break;
             case LAPIS:
                 // No persistent effects to remove for lapis
+                player.sendMessage("§7Lapis ore effects removed.");
                 break;
             case GOLD:
                 // No persistent effects to remove for gold
+                player.sendMessage("§7Gold ore effects removed.");
                 break;
             case WOOD:
                 // No persistent effects to remove for wood
+                player.sendMessage("§7Wood ore effects removed.");
                 break;
         }
     }

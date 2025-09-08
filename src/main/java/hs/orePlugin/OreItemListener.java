@@ -215,56 +215,68 @@ public class OreItemListener implements Listener {
         }
     }
 
-    // FIXED: Complete ore type effect removal with all proper cleanups
     private void removeOreTypeEffectsFixed(Player player, OreType oreType) {
         switch (oreType) {
             case DIRT:
-                // Remove all dirt effects
+                // FIXED: Remove all dirt effects completely
                 player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
                 resetArmorAttribute(player);
+                player.sendMessage("§7Dirt ore effects removed (mining fatigue cleared).");
                 break;
             case IRON:
                 resetArmorAttribute(player);
                 plugin.getAbilityManager().cancelIronDropTimer(player);
+                player.sendMessage("§7Iron ore effects removed.");
                 break;
             case AMETHYST:
                 // FIXED: Properly cancel the amethyst glowing
                 plugin.getAbilityManager().cancelAmethystGlowing(player);
+                player.sendMessage("§7Amethyst ore effects removed.");
                 break;
             case EMERALD:
                 player.removePotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE);
                 player.removePotionEffect(PotionEffectType.WEAKNESS);
+                player.sendMessage("§7Emerald ore effects removed.");
                 break;
             case STONE:
-                // Remove stone-related effects
+                // FIXED: Remove stone-related effects properly
                 player.removePotionEffect(PotionEffectType.REGENERATION);
                 player.removePotionEffect(PotionEffectType.SLOWNESS);
+                player.sendMessage("§7Stone ore effects removed (regen/slowness cleared).");
                 break;
             case COPPER:
                 // FIXED: Stop copper armor durability timer
                 plugin.getAbilityListener().stopCopperArmorDurabilityTimer(player);
+                player.sendMessage("§7Copper ore effects removed.");
                 break;
             case DIAMOND:
                 // FIXED: Stop diamond armor protection timer
                 plugin.getAbilityListener().stopDiamondArmorProtectionTimer(player);
+                player.sendMessage("§7Diamond ore effects removed.");
                 break;
             case COAL:
                 // No persistent timers to cancel for coal
+                player.sendMessage("§7Coal ore effects removed.");
                 break;
             case NETHERITE:
                 // No persistent timers to cancel for netherite
+                player.sendMessage("§7Netherite ore effects removed.");
                 break;
             case REDSTONE:
                 // No persistent timers to cancel for redstone
+                player.sendMessage("§7Redstone ore effects removed.");
                 break;
             case LAPIS:
                 // No persistent timers to cancel for lapis
+                player.sendMessage("§7Lapis ore effects removed.");
                 break;
             case GOLD:
                 // No persistent timers to cancel for gold
+                player.sendMessage("§7Gold ore effects removed.");
                 break;
             case WOOD:
                 // No persistent timers to cancel for wood
+                player.sendMessage("§7Wood ore effects removed.");
                 break;
         }
     }
