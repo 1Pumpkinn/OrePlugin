@@ -11,7 +11,8 @@ public class OreAbilitiesPlugin extends JavaPlugin {
     private static OreAbilitiesPlugin instance;
     private PlayerDataManager playerDataManager;
     private AbilityManager abilityManager;
-    private AbilityListener abilityListener;  // ADDED: Reference to AbilityListener
+    private AbilityListener abilityListener;
+    private PlayerListener playerListener;
     private TrustManager trustManager;
     private ActionBarManager actionBarManager;
     private AbilityActivationManager activationManager;
@@ -36,19 +37,18 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         // Initialize managers
         playerDataManager = new PlayerDataManager(this);
         abilityManager = new AbilityManager(this);
-        abilityListener = new AbilityListener(this);  // ADDED: Initialize AbilityListener
+        abilityListener = new AbilityListener(this);
+        playerListener = new PlayerListener(this);  // ADDED: Initialize PlayerListener
         trustManager = new TrustManager(this);
         actionBarManager = new ActionBarManager(this);
         activationManager = new AbilityActivationManager(this);
         recipeManager = new RecipeManager(this);
 
-        // Register recipes
         recipeManager.registerAllRecipes();
 
         // Register events
-        getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
-        getServer().getPluginManager().registerEvents(abilityListener, this);  // CHANGED: Use instance
-        // Note: OreItemListener is no longer needed since ore switching happens through crafting
+        getServer().getPluginManager().registerEvents(playerListener, this);
+        getServer().getPluginManager().registerEvents(abilityListener, this);
         getServer().getPluginManager().registerEvents(activationManager, this);
 
         // Register commands
@@ -66,6 +66,8 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         getLogger().info("Features: Direct crafting system, enhanced ore info, admin commands, bedrock support!");
         getLogger().info("Registered " + getRecipeCount() + " custom ore recipes with 25% shatter chance!");
     }
+
+
 
     @Override
     public void onDisable() {
@@ -167,5 +169,9 @@ public class OreAbilitiesPlugin extends JavaPlugin {
 
     public FileConfiguration getPlayerDataConfig() {
         return playerDataConfig;
+    }
+
+    public PlayerListener getPlayerListener() {  // ADDED: Getter for PlayerListener
+        return playerListener;
     }
 }

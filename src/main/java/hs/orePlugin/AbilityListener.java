@@ -334,6 +334,13 @@ public class AbilityListener implements Listener {
             // FIXED: Remove ALL old ore effects before applying new ones
             if (currentOreType != null) {
                 removeAllOreTypeEffectsFixed(player, currentOreType);
+
+                // CRITICAL FIX: Also clean up PlayerListener tracking
+                PlayerListener playerListener = plugin.getPlayerListener();
+                if (playerListener != null) {
+                    playerListener.cleanupPlayerEffects(player, currentOreType);
+                }
+
                 player.sendMessage("§e⚠ Replacing your " + currentOreType.getDisplayName() + " ore ability!");
             }
 

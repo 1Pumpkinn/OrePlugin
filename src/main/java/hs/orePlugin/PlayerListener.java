@@ -86,24 +86,47 @@ public class PlayerListener implements Listener {
         emeraldWeaknessCheck.remove(uuid);
         dirtArmorCheck.remove(uuid);
         wasOnStone.remove(uuid);
+        lastMoveCheck.remove(uuid);
 
         // Remove specific effects based on ore type
         switch (oreType) {
             case DIRT:
                 player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
+                // Reset armor attribute
+                AttributeInstance armor = player.getAttribute(Attribute.ARMOR);
+                if (armor != null) {
+                    armor.setBaseValue(0);
+                }
+                plugin.getLogger().info("Cleaned up dirt effects for " + player.getName());
                 break;
             case STONE:
                 player.removePotionEffect(PotionEffectType.REGENERATION);
                 player.removePotionEffect(PotionEffectType.SLOWNESS);
+                plugin.getLogger().info("Cleaned up stone effects for " + player.getName());
                 break;
             case EMERALD:
                 player.removePotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE);
                 player.removePotionEffect(PotionEffectType.WEAKNESS);
+                plugin.getLogger().info("Cleaned up emerald effects for " + player.getName());
                 break;
             case AMETHYST:
                 player.removePotionEffect(PotionEffectType.GLOWING);
+                plugin.getLogger().info("Cleaned up amethyst effects for " + player.getName());
+                break;
+            case IRON:
+                // Reset armor attribute
+                AttributeInstance ironArmor = player.getAttribute(Attribute.ARMOR);
+                if (ironArmor != null) {
+                    double current = ironArmor.getBaseValue();
+                    ironArmor.setBaseValue(Math.max(0, current - 2));
+                }
+                plugin.getLogger().info("Cleaned up iron effects for " + player.getName());
+                break;
+            default:
+                plugin.getLogger().info("No specific cleanup needed for " + oreType.name());
                 break;
         }
+        player.sendMessage("§7Cleaned up " + oreType.getDisplayName() + " ore tracking data.");
     }
 
     @EventHandler(priority = EventPriority.HIGH)
