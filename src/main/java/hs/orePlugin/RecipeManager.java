@@ -8,9 +8,11 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.CraftItemEvent;
+import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.CraftingInventory;
 
 import java.util.*;
 
@@ -37,34 +39,136 @@ public class RecipeManager implements Listener {
         if (!isDirectOreItem(result)) return;
 
         Player player = (Player) event.getWhoClicked();
-        OreConfigs configs = plugin.getOreConfigs();
-        double shatterChance = configs != null ? configs.getShatterChance() : 0.25;
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        OreType craftedOreType = getOreTypeFromDirectItem(result);
 
-        if (random.nextDouble() < shatterChance) {
+        if (craftedOreType == null) {
             event.setCancelled(true);
-            OreType oreType = getOreTypeFromDirectItem(result);
-            if (oreType != null) {
-                String oreColor = getOreColor(oreType);
-                player.sendMessage("§c💥 The " + oreColor + oreType.getDisplayName() + " §cmastery shattered!");
-                player.playSound(player.getLocation(), org.bukkit.Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
-            }
+            player.sendMessage("§cError: Invalid ore type!");
             return;
         }
 
-        // Success: give mastery
-        OreType oreType = getOreTypeFromDirectItem(result);
-        if (oreType != null) {
-            event.setCancelled(true);
-            plugin.getPlayerDataManager().setPlayerOre(player, oreType);
-            plugin.getActionBarManager().stopActionBar(player);
-            plugin.getActionBarManager().startActionBar(player);
-            plugin.getAbilityManager().restartPlayerTimers(player);
+        OreType currentOreType = dataManager.getPlayerOre(player);
 
-            String oreColor = getOreColor(oreType);
-            player.sendMessage("§a✨ Mastered " + oreColor + oreType.getDisplayName() + " §aOre!");
-            player.sendMessage("§eUnlocked ability: " + oreColor + getAbilityName(oreType));
-            player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.2f);
+        // Check if player already has this ore type
+        if (currentOreType == craftedOreType) {
+            event.setCancelled(true);
+            player.sendMessage("§cYou already have the " + craftedOreType.getDisplayName() + " ore ability!");
+            player.sendMessage("§7You cannot craft the same ore mastery twice!");
+            player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            return;
         }
+
+        // Always cancel the event to handle item consumption manually
+        event.setCancelled(true);
+
+        OreConfigs configs = plugin.getOreConfigs();
+        double shatterChance = configs != null ? configs.getShatterChance() : 0.25;
+
+        // Consume the crafting materials regardless of success/failure
+        consumeCraftingMaterials(event.getInventory());
+
+        // Check if ore shatters
+        if (random.nextDouble() < shatterChance) {
+            String oreColor = getOreColor(craftedOreType);
+            player.sendMessage("§c💥 The " + oreColor + craftedOreType.getDisplayName() + " §cmastery shattered during crafting!");
+            player.sendMessage("§7Your materials were consumed... try again!");
+            player.playSound(player.getLocation(), org.bukkit.Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
+            return;
+        }
+
+        // Success: Remove old ore effects and apply new ones
+        if (currentOreType != null) {
+            removeOreTypeEffects(player, currentOreType);
+            player.sendMessage("§e⚠ Replacing your " + currentOreType.getDisplayName() + " ore ability!");
+        }
+
+        // Give the new ore mastery
+        dataManager.setPlayerOre(player, craftedOreType);
+        applyOreTypeEffects(player, craftedOreType);
+
+        // Update UI
+        plugin.getActionBarManager().stopActionBar(player);
+        plugin.getActionBarManager().startActionBar(player);
+        plugin.getAbilityManager().restartPlayerTimers(player);
+
+        // Success messages
+        String oreColor = getOreColor(craftedOreType);
+        player.sendMessage("§a✨ Successfully mastered the " + oreColor + craftedOreType.getDisplayName() + " §aOre!");
+        player.sendMessage("§7Your new ability: §6" + getAbilityName(craftedOreType));
+
+        int cooldown = configs != null ? configs.getCooldown(craftedOreType) : craftedOreType.getCooldown();
+        player.sendMessage("§7Cooldown: §b" + cooldown + " seconds");
+        player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
+    }
+
+    @EventHandler
+    public void onPrepareItemCraft(PrepareItemCraftEvent event) {
+        if (event.getRecipe() == null) return;
+
+        ItemStack result = event.getRecipe().getResult();
+        if (!isDirectOreItem(result)) return;
+
+        // Check if any viewer is a player and already has this ore
+        for (org.bukkit.entity.HumanEntity viewer : event.getViewers()) {
+            if (viewer instanceof Player) {
+                Player player = (Player) viewer;
+                PlayerDataManager dataManager = plugin.getPlayerDataManager();
+                OreType craftedOreType = getOreTypeFromDirectItem(result);
+                OreType currentOreType = dataManager.getPlayerOre(player);
+
+                if (currentOreType == craftedOreType) {
+                    // Set result to null to prevent crafting
+                    event.getInventory().setResult(null);
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * Consumes all crafting materials from the crafting grid
+     */
+    private void consumeCraftingMaterials(CraftingInventory inventory) {
+        // Get the crafting matrix (excluding result slot)
+        ItemStack[] matrix = inventory.getMatrix();
+
+        for (int i = 0; i < matrix.length; i++) {
+            ItemStack item = matrix[i];
+            if (item != null && !item.getType().isAir()) {
+                // Reduce stack by 1 or set to null if only 1 item
+                if (item.getAmount() > 1) {
+                    item.setAmount(item.getAmount() - 1);
+                } else {
+                    matrix[i] = null;
+                }
+            }
+        }
+
+        // Update the crafting matrix
+        inventory.setMatrix(matrix);
+    }
+
+    /**
+     * Remove old ore type effects when switching
+     */
+    private void removeOreTypeEffects(Player player, OreType oreType) {
+        // Use AbilityListener's method for comprehensive cleanup
+        plugin.getAbilityListener().removeAllOreTypeEffectsFixed(player, oreType);
+
+        // Also cleanup PlayerListener tracking
+        PlayerListener playerListener = plugin.getPlayerListener();
+        if (playerListener != null) {
+            playerListener.cleanupPlayerEffects(player, oreType);
+        }
+    }
+
+    /**
+     * Apply new ore type effects when switching
+     */
+    private void applyOreTypeEffects(Player player, OreType oreType) {
+        // Use AbilityListener's method for comprehensive application
+        plugin.getAbilityListener().applyAllOreTypeEffectsFixed(player, oreType);
     }
 
     // Recipe System
@@ -216,12 +320,18 @@ public class RecipeManager implements Listener {
             String abilityName = getAbilityName(oreType);
 
             meta.setDisplayName(oreColor + oreType.getDisplayName() + " Ore Mastery");
+
+            OreConfigs configs = plugin.getOreConfigs();
+            int shatterPercent = configs != null ? (int)(configs.getShatterChance() * 100) : 25;
+
             meta.setLore(List.of(
                     "§7Grants " + oreColor + oreType.getDisplayName() + " §7ore ability!",
                     "§7Ability: §6" + abilityName,
                     "§7Cooldown: §b" + oreType.getCooldown() + "s",
                     "",
-                    "§c⚠ Chance to shatter during crafting!",
+                    "§c⚠ " + shatterPercent + "% chance to shatter during crafting!",
+                    "§7Materials will be consumed even if shattered",
+                    "§c⚠ Cannot craft if you already have this ore!",
                     "§8Ore Abilities Plugin"
             ));
             meta.setCustomModelData(1000 + oreType.ordinal());

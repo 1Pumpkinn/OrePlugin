@@ -398,8 +398,8 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // FIXED: Complete and comprehensive ore type effect application
-    private void applyAllOreTypeEffectsFixed(Player player, OreType oreType) {
+    // FIXED: Complete and comprehensive ore type effect application - MADE PUBLIC
+    public void applyAllOreTypeEffectsFixed(Player player, OreType oreType) {
         switch (oreType) {
             case DIRT:
                 // FIXED: Dirt gets diamond-level armor protection (20 armor points) but only with full leather armor
@@ -430,7 +430,8 @@ public class AbilityListener implements Listener {
         }
     }
 
-    private void removeAllOreTypeEffectsFixed(Player player, OreType oreType) {
+    // MADE PUBLIC so RecipeManager can access it
+    public void removeAllOreTypeEffectsFixed(Player player, OreType oreType) {
         switch (oreType) {
             case DIRT:
                 // FIXED: Remove all dirt effects completely
