@@ -3,17 +3,84 @@ package hs.orePlugin;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.CraftItemEvent;
+import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.ShapelessRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 
-public class RecipeManager {
+import java.util.Random;
+
+public class RecipeManager implements Listener {
 
     private final OreAbilitiesPlugin plugin;
+    private final Random random = new Random();
 
     public RecipeManager(OreAbilitiesPlugin plugin) {
         this.plugin = plugin;
+        // Register this class as an event listener
+        Bukkit.getPluginManager().registerEvents(this, plugin);
+    }
+
+    @EventHandler
+    public void onCraftItem(CraftItemEvent event) {
+        // Check if the crafted item is one of our ore mastery items
+        ItemStack result = event.getRecipe().getResult();
+        if (!isDirectOreItem(result)) {
+            return;
+        }
+
+        Player player = (Player) event.getWhoClicked();
+        CraftingInventory craftingInventory = event.getInventory();
+
+        // 25% chance to shatter during crafting
+        if (random.nextDouble() < 0.25) {
+            event.setCancelled(true);
+
+            // Remove all crafting materials
+            ItemStack[] matrix = craftingInventory.getMatrix();
+            for (int i = 0; i < matrix.length; i++) {
+                if (matrix[i] != null && matrix[i].getType() != Material.AIR) {
+                    matrix[i].setAmount(matrix[i].getAmount() - 1);
+                    if (matrix[i].getAmount() <= 0) {
+                        matrix[i] = null;
+                    }
+                }
+            }
+            craftingInventory.setMatrix(matrix);
+
+            // Send failure message
+            OreType oreType = getOreTypeFromDirectItem(result);
+            if (oreType != null) {
+                String oreColor = getOreColor(oreType);
+                player.sendMessage("§c💥 The " + oreColor + oreType.getDisplayName() + " §core mastery shattered during crafting!");
+            }
+
+            return;
+        }
+
+        // Successful crafting - consume the materials
+        ItemStack[] matrix = craftingInventory.getMatrix();
+        for (int i = 0; i < matrix.length; i++) {
+            if (matrix[i] != null && matrix[i].getType() != Material.AIR) {
+                matrix[i].setAmount(matrix[i].getAmount() - 1);
+                if (matrix[i].getAmount() <= 0) {
+                    matrix[i] = null;
+                }
+            }
+        }
+        craftingInventory.setMatrix(matrix);
+
+        // Send success message
+        OreType oreType = getOreTypeFromDirectItem(result);
+        if (oreType != null) {
+            String oreColor = getOreColor(oreType);
+            player.sendMessage("§a✨ Successfully crafted " + oreColor + oreType.getDisplayName() + " §aOre Mastery!");
+        }
     }
 
     public void registerAllRecipes() {

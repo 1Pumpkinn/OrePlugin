@@ -211,7 +211,7 @@ public class PlayerListener implements Listener {
             // Apply mining fatigue
             if (!player.hasPotionEffect(PotionEffectType.MINING_FATIGUE)) {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, Integer.MAX_VALUE, 0, false, false));
-                player.sendMessage("§cDirt curse! Mining fatigue applied - you need full leather armor!");
+                player.sendMessage("§cMining fatigue applied - you need full leather armor!");
             }
         }
     }
@@ -238,10 +238,10 @@ public class PlayerListener implements Listener {
 
             if (!hasEnoughEmeralds && !hasWeakness) {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, Integer.MAX_VALUE, 0, false, false));
-                player.sendMessage("§cEmerald curse! You need at least 4 stacks of emeralds or you'll have weakness!");
+                player.sendMessage("§cYou need at least 4 stacks of emeralds");
             } else if (hasEnoughEmeralds && hasWeakness) {
                 player.removePotionEffect(PotionEffectType.WEAKNESS);
-                player.sendMessage("§aEmerald blessing! Weakness removed - you have enough emeralds!");
+                player.sendMessage("§aYou have enough emeralds!");
             }
         }
     }
@@ -260,7 +260,6 @@ public class PlayerListener implements Listener {
         if (oreType == OreType.WOOD && item.getType() == Material.APPLE) {
             player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 100, 1));
             player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 2400, 0));
-            player.sendMessage("§6Apple enhanced by Wood ore!");
         }
 
         // Gold ore - golden apples give 2x absorption
@@ -269,7 +268,6 @@ public class PlayerListener implements Listener {
                 @Override
                 public void run() {
                     player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 2400, 1)); // Extra absorption
-                    player.sendMessage("§6Gold ore enhanced your golden apple!");
                 }
             }.runTaskLater(plugin, 1);
         }
@@ -289,7 +287,7 @@ public class PlayerListener implements Listener {
         if (oreType == OreType.DIAMOND && isOre(blockType)) {
             if (random.nextDouble() < 0.5) {
                 event.setDropItems(false);
-                player.sendMessage("§cDiamond curse prevented ore drop!");
+                player.sendMessage("§cDiamond downside prevented ore drop!");
             }
         }
 
@@ -298,7 +296,6 @@ public class PlayerListener implements Listener {
             event.setDropItems(false);
             ItemStack netheriteIngot = new ItemStack(Material.NETHERITE_INGOT, 1);
             event.getBlock().getWorld().dropItemNaturally(event.getBlock().getLocation(), netheriteIngot);
-            player.sendMessage("§4Netherite blessing! Ancient debris became a netherite ingot!");
             player.playSound(player.getLocation(), Sound.BLOCK_ANCIENT_DEBRIS_BREAK, 1.0f, 0.5f);
         }
     }
@@ -338,11 +335,11 @@ public class PlayerListener implements Listener {
                 if (isOnStone && (wasOnStonePreviously == null || !wasOnStonePreviously)) {
                     player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, Integer.MAX_VALUE, 0));
                     player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 0));
-                    player.sendMessage("§7Stone blessing activated! Regeneration while on stone.");
+                    player.sendMessage("§7Stone Skin activated! Regeneration while on stone.");
                 } else if (!isOnStone && wasOnStonePreviously != null && wasOnStonePreviously) {
                     player.removePotionEffect(PotionEffectType.REGENERATION);
                     player.removePotionEffect(PotionEffectType.SLOWNESS);
-                    player.sendMessage("§7Stone blessing ended.");
+                    player.sendMessage("§7Stone Skin has ended.");
                 }
 
                 wasOnStone.put(uuid, isOnStone);
@@ -362,7 +359,6 @@ public class PlayerListener implements Listener {
             case DIRT:
                 // Apply dirt effects immediately
                 checkAndApplyDirtEffects(player);
-                player.sendMessage("§6Dirt ore effects applied! Full leather armor = diamond protection, else mining fatigue!");
                 break;
 
             case IRON:
@@ -373,19 +369,16 @@ public class PlayerListener implements Listener {
                 }
                 // FIXED: Start the iron drop timer properly
                 plugin.getAbilityManager().startIronDropTimer(player);
-                player.sendMessage("§fIron ore effects applied! +2 armor and random item drops!");
                 break;
 
             case NETHERITE:
                 // No fire damage
                 player.setFireTicks(0);
-                player.sendMessage("§4Netherite ore effects applied! Fire immunity!");
                 break;
 
             case AMETHYST:
                 // FIXED: Start persistent glowing effect immediately with proper method call
                 plugin.getAbilityManager().startAmethystGlowing(player);
-                player.sendMessage("§dAmethyst ore effects applied! Permanent purple glowing!");
                 break;
 
             case EMERALD:
@@ -393,43 +386,32 @@ public class PlayerListener implements Listener {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9, false, false));
                 // Initial emerald weakness check
                 handleEmeraldWeakness(player);
-                player.sendMessage("§aEmerald ore effects applied! Hero of village + emerald requirement!");
                 break;
 
             case COPPER:
                 // FIXED: Start copper armor durability timer
                 plugin.getAbilityListener().startCopperArmorDurabilityTimer(player);
-                player.sendMessage("§cCopper ore effects applied! Lightning immunity + armor breaks 2x faster!");
                 break;
 
             case DIAMOND:
                 // FIXED: Start diamond armor protection timer
                 plugin.getAbilityListener().startDiamondArmorProtectionTimer(player);
-                player.sendMessage("§bDiamond ore effects applied! Armor lasts 2x longer + 50% ore drop fail!");
                 break;
 
             case COAL:
-                player.sendMessage("§8Coal ore effects applied! +1 fire damage + water damage!");
                 break;
 
             case REDSTONE:
-                player.sendMessage("§4Redstone ore effects applied! Dripstone immunity + 5x bee/slime damage!");
                 break;
 
             case LAPIS:
-                player.sendMessage("§9Lapis ore effects applied! Free anvils + no villager trading!");
                 break;
 
             case GOLD:
-                player.sendMessage("§eGold ore effects applied! 2x golden apple absorption + random durability!");
                 break;
-
             case WOOD:
-                player.sendMessage("§eWood ore effects applied! Apples = golden apples!");
                 break;
-
             case STONE:
-                player.sendMessage("§7Stone ore effects applied! Regeneration on stone blocks!");
                 break;
         }
     }

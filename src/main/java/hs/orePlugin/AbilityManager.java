@@ -152,7 +152,7 @@ public class AbilityManager {
             @Override
             public void run() {
                 activeEffects.remove(player.getUniqueId());
-                player.sendMessage("§eLumberjack's Fury effect ended.");
+                player.sendMessage("§eLumberjack's Fury has ended.");
             }
         }.runTaskLater(plugin, 100); // 5 seconds
     }
@@ -205,7 +205,7 @@ public class AbilityManager {
             public void run() {
                 copperLightningActive.remove(player.getUniqueId());
                 activeEffects.remove(player.getUniqueId());
-                player.sendMessage("§bChannel The Clouds effect ended.");
+                player.sendMessage("§bChannel The Clouds has ended.");
             }
         }.runTaskLater(plugin, 200); // 10 seconds
     }
@@ -254,7 +254,7 @@ public class AbilityManager {
             @Override
             public void run() {
                 activeEffects.remove(player.getUniqueId());
-                player.sendMessage("§bLevel Replenish effect ended.");
+                player.sendMessage("§bLevel Replenish has ended.");
             }
         }.runTaskLater(plugin, 600); // 30 seconds
     }
@@ -288,7 +288,7 @@ public class AbilityManager {
             @Override
             public void run() {
                 activeEffects.remove(player.getUniqueId());
-                player.sendMessage("§5Crystal Cluster effect ended.");
+                player.sendMessage("§5Crystal Cluster has ended.");
             }
         }.runTaskLater(plugin, 200); // 10 seconds
     }
@@ -304,7 +304,7 @@ public class AbilityManager {
                 @Override
                 public void run() {
                     activeEffects.remove(player.getUniqueId());
-                    player.sendMessage("§3Gleaming Power effect ended.");
+                    player.sendMessage("§3Gleaming Power has ended.");
                 }
             }.runTaskLater(plugin, 100); // 5 seconds
         } else {
