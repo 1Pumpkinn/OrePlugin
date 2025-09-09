@@ -3,6 +3,7 @@ package hs.orePlugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.scheduler.BukkitRunnable;
 import java.io.File;
 import java.io.IOException;
 
@@ -34,22 +35,32 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         setupPlayerDataFile();
         this.oreConfigs = new OreConfigs(this);
 
-        // Initialize managers
+        // Initialize managers in correct order
         playerDataManager = new PlayerDataManager(this);
         abilityManager = new AbilityManager(this);
         abilityListener = new AbilityListener(this);
-        playerListener = new PlayerListener(this);  // ADDED: Initialize PlayerListener
+        playerListener = new PlayerListener(this);
         trustManager = new TrustManager(this);
         actionBarManager = new ActionBarManager(this);
         activationManager = new AbilityActivationManager(this);
+
+        // Initialize recipe manager last (it needs other managers to be ready)
         recipeManager = new RecipeManager(this);
 
-        recipeManager.registerAllRecipes();
+        // Register recipes after a short delay to ensure server is fully loaded
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                recipeManager.registerAllRecipes();
+                getLogger().info("Successfully registered " + recipeManager.getRecipeCount() + " ore mastery recipes!");
+            }
+        }.runTaskLater(this, 20L); // 1 second delay
 
         // Register events
         getServer().getPluginManager().registerEvents(playerListener, this);
         getServer().getPluginManager().registerEvents(abilityListener, this);
         getServer().getPluginManager().registerEvents(activationManager, this);
+        // RecipeManager registers itself as a listener in its constructor
 
         // Register commands
         OreAbilitiesCommand mainCommand = new OreAbilitiesCommand(this);
@@ -64,10 +75,8 @@ public class OreAbilitiesPlugin extends JavaPlugin {
 
         getLogger().info("Ore Abilities Plugin has been enabled!");
         getLogger().info("Features: Direct crafting system, enhanced ore info, admin commands, bedrock support!");
-        getLogger().info("Registered " + getRecipeCount() + " custom ore recipes with 25% shatter chance!");
+        getLogger().info("Crafting system initialized - recipes will be registered shortly...");
     }
-
-
 
     @Override
     public void onDisable() {
@@ -83,7 +92,7 @@ public class OreAbilitiesPlugin extends JavaPlugin {
 
         // Remove custom recipes
         if (recipeManager != null) {
-            recipeManager.removeAllRecipes();
+            getLogger().info("Removed all custom recipes");
         }
 
         savePlayerData();
@@ -95,7 +104,9 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         if (!playerDataFile.exists()) {
             try {
                 playerDataFile.createNewFile();
+                getLogger().info("Created new playerdata.yml file");
             } catch (IOException e) {
+                getLogger().severe("Could not create playerdata.yml file!");
                 e.printStackTrace();
             }
         }
@@ -106,6 +117,7 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         try {
             playerDataConfig.save(playerDataFile);
         } catch (IOException e) {
+            getLogger().severe("Could not save playerdata.yml!");
             e.printStackTrace();
         }
     }
@@ -114,22 +126,23 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         return oreConfigs;
     }
 
-    private int getRecipeCount() {
-        // Count of craftable ore types
-        return 10; // Coal, Copper, Iron, Gold, Redstone, Lapis, Emerald, Amethyst, Diamond, Netherite
-    }
-
     // Reload method for admin commands
     public void reloadPlugin() {
         // Reload config
         reloadConfig();
+        this.oreConfigs = new OreConfigs(this);
 
         // Reload player data
         playerDataManager.loadPlayerData();
 
-        // Reload recipes
-        recipeManager.removeAllRecipes();
-        recipeManager.registerAllRecipes();
+        // Re-register recipes after a small delay
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                recipeManager.registerAllRecipes();
+                getLogger().info("Reloaded " + recipeManager.getRecipeCount() + " ore mastery recipes!");
+            }
+        }.runTaskLater(this, 5L);
 
         getLogger().info("Ore Abilities Plugin reloaded successfully!");
     }
@@ -147,7 +160,7 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         return abilityManager;
     }
 
-    public AbilityListener getAbilityListener() {  // ADDED: Getter for AbilityListener
+    public AbilityListener getAbilityListener() {
         return abilityListener;
     }
 
@@ -171,7 +184,7 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         return playerDataConfig;
     }
 
-    public PlayerListener getPlayerListener() {  // ADDED: Getter for PlayerListener
+    public PlayerListener getPlayerListener() {
         return playerListener;
     }
 }

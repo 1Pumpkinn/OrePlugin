@@ -5,258 +5,207 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.CraftItemEvent;
-import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.ShapedRecipe;
-import org.bukkit.inventory.ShapelessRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.Random;
+import java.util.*;
 
 public class RecipeManager implements Listener {
 
     private final OreAbilitiesPlugin plugin;
     private final Random random = new Random();
+    private final List<NamespacedKey> registeredRecipes = new ArrayList<>();
+
+    // Centralized recipe definitions
+    private final Map<OreType, RecipeDefinition> recipeDefinitions = new HashMap<>();
 
     public RecipeManager(OreAbilitiesPlugin plugin) {
         this.plugin = plugin;
-        // Register this class as an event listener
         Bukkit.getPluginManager().registerEvents(this, plugin);
+        loadRecipeDefinitions();
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onCraftItem(CraftItemEvent event) {
-        // Check if the crafted item is one of our ore mastery items
+        if (!(event.getWhoClicked() instanceof Player)) return;
+
         ItemStack result = event.getRecipe().getResult();
-        if (!isDirectOreItem(result)) {
-            return;
-        }
+        if (!isDirectOreItem(result)) return;
 
         Player player = (Player) event.getWhoClicked();
-        CraftingInventory craftingInventory = event.getInventory();
+        OreConfigs configs = plugin.getOreConfigs();
+        double shatterChance = configs != null ? configs.getShatterChance() : 0.25;
 
-        // 25% chance to shatter during crafting
-        if (random.nextDouble() < 0.25) {
+        if (random.nextDouble() < shatterChance) {
             event.setCancelled(true);
-
-            // Remove all crafting materials
-            ItemStack[] matrix = craftingInventory.getMatrix();
-            for (int i = 0; i < matrix.length; i++) {
-                if (matrix[i] != null && matrix[i].getType() != Material.AIR) {
-                    matrix[i].setAmount(matrix[i].getAmount() - 1);
-                    if (matrix[i].getAmount() <= 0) {
-                        matrix[i] = null;
-                    }
-                }
-            }
-            craftingInventory.setMatrix(matrix);
-
-            // Send failure message
             OreType oreType = getOreTypeFromDirectItem(result);
             if (oreType != null) {
                 String oreColor = getOreColor(oreType);
-                player.sendMessage("§c💥 The " + oreColor + oreType.getDisplayName() + " §core mastery shattered during crafting!");
+                player.sendMessage("§c💥 The " + oreColor + oreType.getDisplayName() + " §cmastery shattered!");
+                player.playSound(player.getLocation(), org.bukkit.Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
             }
-
             return;
         }
 
-        // Successful crafting - consume the materials
-        ItemStack[] matrix = craftingInventory.getMatrix();
-        for (int i = 0; i < matrix.length; i++) {
-            if (matrix[i] != null && matrix[i].getType() != Material.AIR) {
-                matrix[i].setAmount(matrix[i].getAmount() - 1);
-                if (matrix[i].getAmount() <= 0) {
-                    matrix[i] = null;
-                }
-            }
-        }
-        craftingInventory.setMatrix(matrix);
-
-        // Send success message
+        // Success: give mastery
         OreType oreType = getOreTypeFromDirectItem(result);
         if (oreType != null) {
+            event.setCancelled(true);
+            plugin.getPlayerDataManager().setPlayerOre(player, oreType);
+            plugin.getActionBarManager().stopActionBar(player);
+            plugin.getActionBarManager().startActionBar(player);
+            plugin.getAbilityManager().restartPlayerTimers(player);
+
             String oreColor = getOreColor(oreType);
-            player.sendMessage("§a✨ Successfully crafted " + oreColor + oreType.getDisplayName() + " §aOre Mastery!");
+            player.sendMessage("§a✨ Mastered " + oreColor + oreType.getDisplayName() + " §aOre!");
+            player.sendMessage("§eUnlocked ability: " + oreColor + getAbilityName(oreType));
+            player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.2f);
         }
+    }
+
+    // Recipe System
+    private void loadRecipeDefinitions() {
+        recipeDefinitions.put(OreType.COAL, new RecipeDefinition(
+                new String[]{"BFB", "OCD", "BFB"},
+                Map.of(
+                        'B', Material.BLAST_FURNACE,
+                        'F', Material.FIRE_CHARGE,
+                        'O', Material.COAL_ORE,
+                        'C', Material.COAL,
+                        'D', Material.DEEPSLATE_COAL_ORE)
+
+        ));
+        recipeDefinitions.put(OreType.COPPER, new RecipeDefinition(
+                new String[]{"BLO", "RCR", "OLB"},
+                Map.of(
+                        'B', Material.COPPER_BLOCK,
+                        'L', Material.LIGHTNING_ROD,
+                        'O', Material.OXIDIZED_COPPER,
+                        'R', Material.RAW_COPPER_BLOCK,
+                        'C', Material.COPPER_INGOT)
+        ));
+        recipeDefinitions.put(OreType.IRON, new RecipeDefinition(
+                new String[]{"HNC", "OID", "LRB"},
+                Map.of(
+                        'H', Material.IRON_HELMET,
+                        'N', Material.IRON_BLOCK,
+                        'C', Material.IRON_CHESTPLATE,
+                        'O', Material.IRON_ORE,
+                        'I', Material.IRON_INGOT,
+                        'D', Material.DEEPSLATE_IRON_ORE,
+                        'L', Material.IRON_LEGGINGS,
+                        'R', Material.RAW_IRON_BLOCK,
+                        'B', Material.IRON_BOOTS)
+        ));
+        recipeDefinitions.put(OreType.GOLD, new RecipeDefinition(
+                new String[]{"NEO", "SGP", "DAR"},
+                Map.of('N', Material.NETHER_GOLD_ORE,
+                        'E', Material.ENCHANTED_GOLDEN_APPLE,
+                        'O', Material.GOLD_ORE,
+                        'S', Material.GOLDEN_SWORD,
+                        'G', Material.GOLD_INGOT,
+                        'P', Material.GOLDEN_PICKAXE,
+                        'D', Material.DEEPSLATE_GOLD_ORE,
+                        'A', Material.GOLDEN_APPLE,
+                        'R', Material.RAW_GOLD_BLOCK)
+        ));
+        recipeDefinitions.put(OreType.REDSTONE, new RecipeDefinition(
+                new String[]{"LPL", "ORD", "LPL"},
+                Map.of('L', Material.REDSTONE_LAMP,
+                        'P', Material.PISTON,
+                        'O', Material.REDSTONE_ORE,
+                        'R', Material.REDSTONE,
+                        'D', Material.DEEPSLATE_REDSTONE_ORE)
+        ));
+        recipeDefinitions.put(OreType.LAPIS, new RecipeDefinition(
+                new String[]{"XEX", "BLB", "XEX"},
+                Map.of('X', Material.EXPERIENCE_BOTTLE,
+                        'E', Material.ENCHANTING_TABLE,
+                        'B', Material.BOOK,
+                        'L', Material.LAPIS_LAZULI
+                )
+        ));
+        recipeDefinitions.put(OreType.EMERALD, new RecipeDefinition(
+                new String[]{"BLB", "SEG", "BFB"},
+                Map.of('B', Material.EMERALD_BLOCK,
+                        'L', Material.LECTERN,
+                        'S', Material.STONECUTTER,
+                        'G', Material.GRINDSTONE,
+                        'F', Material.FLETCHING_TABLE,
+                        'E', Material.EMERALD)
+        ));
+        recipeDefinitions.put(OreType.AMETHYST, new RecipeDefinition(
+                new String[]{"BSB", "CAM", "BLB"},
+                Map.of('B', Material.AMETHYST_BLOCK,
+                        'S', Material.SMALL_AMETHYST_BUD,
+                        'M', Material.MEDIUM_AMETHYST_BUD,
+                        'L', Material.LARGE_AMETHYST_BUD,
+                        'C', Material.AMETHYST_CLUSTER,
+                        'A', Material.AMETHYST_SHARD)
+        ));
+        recipeDefinitions.put(OreType.DIAMOND, new RecipeDefinition(
+                new String[]{"BHB", "OAD", "BSB"},
+                Map.of('B', Material.DIAMOND_BLOCK,
+                        'H', Material.DIAMOND_HORSE_ARMOR,
+                        'O', Material.DIAMOND_ORE,
+                        'A', Material.DIAMOND,
+                        'D', Material.DEEPSLATE_DIAMOND_ORE,
+                        'S', Material.DIAMOND_SWORD)
+        ));
+        recipeDefinitions.put(OreType.NETHERITE, new RecipeDefinition(
+                new String[]{"USU", "ANH", "UPU"},
+                Map.of('U', Material.NETHERITE_UPGRADE_SMITHING_TEMPLATE,
+                        'S', Material.NETHERITE_SWORD,
+                        'A', Material.NETHERITE_AXE,
+                        'N', Material.NETHERITE_INGOT,
+                        'H', Material.NETHERITE_SHOVEL,
+                        'P', Material.NETHERITE_PICKAXE)
+        ));
     }
 
     public void registerAllRecipes() {
-        // Register all ore recipes with actual crafting patterns
-        registerCoalRecipe();
-        registerCopperRecipe();
-        registerIronRecipe();
-        registerGoldRecipe();
-        registerRedstoneRecipe();
-        registerLapisRecipe();
-        registerEmeraldRecipe();
-        registerAmethystRecipe();
-        registerDiamondRecipe();
-        registerNetheriteRecipe();
+        plugin.getLogger().info("Registering ore mastery recipes...");
+
+        for (OreType oreType : recipeDefinitions.keySet()) {
+            registerRecipe(oreType, recipeDefinitions.get(oreType));
+        }
+
+        plugin.getLogger().info("Registered " + registeredRecipes.size() + " ore mastery recipes!");
     }
 
-    private void registerCoalRecipe() {
-        NamespacedKey key = new NamespacedKey(plugin, "coal_ore_recipe");
-        ItemStack result = createDirectOreItem(OreType.COAL);
+    private void registerRecipe(OreType oreType, RecipeDefinition def) {
+        NamespacedKey key = new NamespacedKey(plugin, oreType.name().toLowerCase() + "_ore_mastery");
+        ItemStack result = createDirectOreItem(oreType);
 
         ShapedRecipe recipe = new ShapedRecipe(key, result);
-        recipe.shape(
-                "CCC",
-                "CDC",
-                "CCC"
-        );
-        recipe.setIngredient('C', Material.COAL);
-        recipe.setIngredient('D', Material.DIRT);
+        recipe.shape(def.shape);
 
-        Bukkit.addRecipe(recipe);
+        def.ingredients.forEach(recipe::setIngredient);
+
+        if (Bukkit.addRecipe(recipe)) {
+            registeredRecipes.add(key);
+            plugin.getLogger().info("Registered " + oreType.getDisplayName() + " recipe");
+        } else {
+            plugin.getLogger().warning("Failed to register " + oreType.getDisplayName() + " recipe");
+        }
     }
 
-    private void registerCopperRecipe() {
-        NamespacedKey key = new NamespacedKey(plugin, "copper_ore_recipe");
-        ItemStack result = createDirectOreItem(OreType.COPPER);
+    // Inner helper class
+    private static class RecipeDefinition {
+        final String[] shape;
+        final Map<Character, Material> ingredients;
 
-        ShapedRecipe recipe = new ShapedRecipe(key, result);
-        recipe.shape(
-                "III",
-                "ICI",
-                "III"
-        );
-        recipe.setIngredient('I', Material.COPPER_INGOT);
-        recipe.setIngredient('C', Material.COAL);
-
-        Bukkit.addRecipe(recipe);
+        RecipeDefinition(String[] shape, Map<Character, Material> ingredients) {
+            this.shape = shape;
+            this.ingredients = ingredients;
+        }
     }
 
-    private void registerIronRecipe() {
-        NamespacedKey key = new NamespacedKey(plugin, "iron_ore_recipe");
-        ItemStack result = createDirectOreItem(OreType.IRON);
-
-        ShapedRecipe recipe = new ShapedRecipe(key, result);
-        recipe.shape(
-                "III",
-                "ICI",
-                "III"
-        );
-        recipe.setIngredient('I', Material.IRON_INGOT);
-        recipe.setIngredient('C', Material.COPPER_INGOT);
-
-        Bukkit.addRecipe(recipe);
-    }
-
-    private void registerGoldRecipe() {
-        NamespacedKey key = new NamespacedKey(plugin, "gold_ore_recipe");
-        ItemStack result = createDirectOreItem(OreType.GOLD);
-
-        ShapedRecipe recipe = new ShapedRecipe(key, result);
-        recipe.shape(
-                "GGG",
-                "GIG",
-                "GGG"
-        );
-        recipe.setIngredient('G', Material.GOLD_INGOT);
-        recipe.setIngredient('I', Material.IRON_INGOT);
-
-        Bukkit.addRecipe(recipe);
-    }
-
-    private void registerRedstoneRecipe() {
-        NamespacedKey key = new NamespacedKey(plugin, "redstone_ore_recipe");
-        ItemStack result = createDirectOreItem(OreType.REDSTONE);
-
-        ShapedRecipe recipe = new ShapedRecipe(key, result);
-        recipe.shape(
-                "RRR",
-                "RGR",
-                "RRR"
-        );
-        recipe.setIngredient('R', Material.REDSTONE);
-        recipe.setIngredient('G', Material.GOLD_INGOT);
-
-        Bukkit.addRecipe(recipe);
-    }
-
-    private void registerLapisRecipe() {
-        NamespacedKey key = new NamespacedKey(plugin, "lapis_ore_recipe");
-        ItemStack result = createDirectOreItem(OreType.LAPIS);
-
-        ShapedRecipe recipe = new ShapedRecipe(key, result);
-        recipe.shape(
-                "LLL",
-                "LRL",
-                "LLL"
-        );
-        recipe.setIngredient('L', Material.LAPIS_LAZULI);
-        recipe.setIngredient('R', Material.REDSTONE);
-
-        Bukkit.addRecipe(recipe);
-    }
-
-    private void registerEmeraldRecipe() {
-        NamespacedKey key = new NamespacedKey(plugin, "emerald_ore_recipe");
-        ItemStack result = createDirectOreItem(OreType.EMERALD);
-
-        ShapedRecipe recipe = new ShapedRecipe(key, result);
-        recipe.shape(
-                "EEE",
-                "ELE",
-                "EEE"
-        );
-        recipe.setIngredient('E', Material.EMERALD);
-        recipe.setIngredient('L', Material.LAPIS_LAZULI);
-
-        Bukkit.addRecipe(recipe);
-    }
-
-    private void registerAmethystRecipe() {
-        NamespacedKey key = new NamespacedKey(plugin, "amethyst_ore_recipe");
-        ItemStack result = createDirectOreItem(OreType.AMETHYST);
-
-        ShapedRecipe recipe = new ShapedRecipe(key, result);
-        recipe.shape(
-                "AAA",
-                "AEA",
-                "AAA"
-        );
-        recipe.setIngredient('A', Material.AMETHYST_SHARD);
-        recipe.setIngredient('E', Material.EMERALD);
-
-        Bukkit.addRecipe(recipe);
-    }
-
-    private void registerDiamondRecipe() {
-        NamespacedKey key = new NamespacedKey(plugin, "diamond_ore_recipe");
-        ItemStack result = createDirectOreItem(OreType.DIAMOND);
-
-        ShapedRecipe recipe = new ShapedRecipe(key, result);
-        recipe.shape(
-                "DDD",
-                "DAD",
-                "DDD"
-        );
-        recipe.setIngredient('D', Material.DIAMOND);
-        recipe.setIngredient('A', Material.AMETHYST_SHARD);
-
-        Bukkit.addRecipe(recipe);
-    }
-
-    private void registerNetheriteRecipe() {
-        NamespacedKey key = new NamespacedKey(plugin, "netherite_ore_recipe");
-        ItemStack result = createDirectOreItem(OreType.NETHERITE);
-
-        ShapedRecipe recipe = new ShapedRecipe(key, result);
-        recipe.shape(
-                "NNN",
-                "NDN",
-                "NNN"
-        );
-        recipe.setIngredient('N', Material.NETHERITE_INGOT);
-        recipe.setIngredient('D', Material.DIAMOND);
-
-        Bukkit.addRecipe(recipe);
-    }
-
+    // Item Creation
     private ItemStack createDirectOreItem(OreType oreType) {
         Material material = getBaseMaterial(oreType);
         ItemStack item = new ItemStack(material);
@@ -267,20 +216,22 @@ public class RecipeManager implements Listener {
             String abilityName = getAbilityName(oreType);
 
             meta.setDisplayName(oreColor + oreType.getDisplayName() + " Ore Mastery");
-            meta.setLore(java.util.Arrays.asList(
-                    "§7Grants you the " + oreColor + oreType.getDisplayName() + " §7ore ability!",
+            meta.setLore(List.of(
+                    "§7Grants " + oreColor + oreType.getDisplayName() + " §7ore ability!",
                     "§7Ability: §6" + abilityName,
-                    "§7Cooldown: §b" + oreType.getCooldown() + " seconds",
+                    "§7Cooldown: §b" + oreType.getCooldown() + "s",
                     "",
-                    "§c⚠ 25% chance to shatter during crafting!",
+                    "§c⚠ Chance to shatter during crafting!",
                     "§8Ore Abilities Plugin"
             ));
+            meta.setCustomModelData(1000 + oreType.ordinal());
             item.setItemMeta(meta);
         }
 
         return item;
     }
 
+    // Helpers
     private Material getBaseMaterial(OreType oreType) {
         switch (oreType) {
             case COAL: return Material.COAL;
@@ -329,49 +280,25 @@ public class RecipeManager implements Listener {
         }
     }
 
-    // Method to check if an item is a direct ore mastery item
     public static boolean isDirectOreItem(ItemStack item) {
-        if (item == null || !item.hasItemMeta() || !item.getItemMeta().hasDisplayName()) {
-            return false;
-        }
-
-        String displayName = item.getItemMeta().getDisplayName();
-        return displayName.contains("Ore Mastery");
+        if (item == null || !item.hasItemMeta() || !item.getItemMeta().hasDisplayName()) return false;
+        return item.getItemMeta().getDisplayName().contains("Ore Mastery");
     }
 
-    // Method to get ore type from direct ore item
     public static OreType getOreTypeFromDirectItem(ItemStack item) {
-        if (!isDirectOreItem(item)) {
-            return null;
+        if (!isDirectOreItem(item)) return null;
+        String name = item.getItemMeta().getDisplayName();
+        for (OreType type : OreType.values()) {
+            if (name.contains(type.getDisplayName())) return type;
         }
-
-        String displayName = item.getItemMeta().getDisplayName();
-
-        if (displayName.contains("Coal")) return OreType.COAL;
-        if (displayName.contains("Copper")) return OreType.COPPER;
-        if (displayName.contains("Iron")) return OreType.IRON;
-        if (displayName.contains("Gold")) return OreType.GOLD;
-        if (displayName.contains("Redstone")) return OreType.REDSTONE;
-        if (displayName.contains("Lapis")) return OreType.LAPIS;
-        if (displayName.contains("Emerald")) return OreType.EMERALD;
-        if (displayName.contains("Amethyst")) return OreType.AMETHYST;
-        if (displayName.contains("Diamond")) return OreType.DIAMOND;
-        if (displayName.contains("Netherite")) return OreType.NETHERITE;
-
         return null;
     }
 
-    // Method to remove all recipes (useful for reloading)
-    public void removeAllRecipes() {
-        String[] recipeNames = {
-                "coal_ore_recipe", "copper_ore_recipe", "iron_ore_recipe", "gold_ore_recipe",
-                "redstone_ore_recipe", "lapis_ore_recipe", "emerald_ore_recipe", "amethyst_ore_recipe",
-                "diamond_ore_recipe", "netherite_ore_recipe"
-        };
+    public int getRecipeCount() {
+        return registeredRecipes.size();
+    }
 
-        for (String recipeName : recipeNames) {
-            NamespacedKey key = new NamespacedKey(plugin, recipeName);
-            Bukkit.removeRecipe(key);
-        }
+    public ItemStack createOreItem(OreType oreType) {
+        return createDirectOreItem(oreType);
     }
 }

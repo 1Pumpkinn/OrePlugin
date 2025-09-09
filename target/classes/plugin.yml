@@ -3,6 +3,7 @@ version: 1.0.0
 main: hs.orePlugin.OreAbilitiesPlugin
 api-version: 1.21
 author: '___Pumpkinn'
+load: STARTUP
 description: A plugin that gives players special abilities based on ore types
 
 commands:
@@ -35,16 +36,17 @@ commands:
 permissions:
   oreabilities.*:
     description: All ore abilities permissions
+    default: op
     children:
       oreabilities.use: true
       oreabilities.trust: true
       oreabilities.admin: true
   oreabilities.use:
-    description: Use ore abilities
+    description: Basic ore abilities usage
     default: true
   oreabilities.trust:
-    description: Use trust commands
+    description: Use trust system
     default: true
   oreabilities.admin:
-    description: Admin commands (set ore types, reset, reload)
+    description: Admin commands for ore abilities
     default: op
