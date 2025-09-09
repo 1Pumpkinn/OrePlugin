@@ -23,6 +23,25 @@ public class OreAbilitiesCommand implements CommandExecutor {
         Player player = (Player) sender;
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
 
+        // Handle different command labels for easier usage
+        if (label.equalsIgnoreCase("ore")) {
+            if (args.length == 0) {
+                showPlayerInfo(player, dataManager);
+                return true;
+            }
+        }
+
+        if (label.equalsIgnoreCase("ability")) {
+            handleAbilityCommand(player);
+            return true;
+        }
+
+        if (label.equalsIgnoreCase("bedrock")) {
+            handleBedrockCommand(player);
+            return true;
+        }
+
+        // Main command handling
         if (args.length == 0) {
             showPlayerInfo(player, dataManager);
             return true;
@@ -32,23 +51,37 @@ public class OreAbilitiesCommand implements CommandExecutor {
 
         switch (subCommand) {
             case "info":
+            case "me":
+            case "stats":
                 showPlayerInfo(player, dataManager);
                 break;
-            case "oreinfo":
-                handleOreInfoCommand(player, args);
+
+            case "list":
+            case "all":
+            case "ores":
+                showAllOres(player);
                 break;
+
             case "help":
+            case "?":
                 showHelp(player);
                 break;
+
+            case "change":
             case "set":
                 handleSetOreCommand(player, dataManager, args);
                 break;
+
             case "bedrock":
+            case "be":
                 handleBedrockCommand(player);
                 break;
+
             case "ability":
+            case "use":
                 handleAbilityCommand(player);
                 break;
+
             case "reload":
                 if (player.hasPermission("oreabilities.admin")) {
                     plugin.reloadConfig();
@@ -58,26 +91,14 @@ public class OreAbilitiesCommand implements CommandExecutor {
                     player.sendMessage("§cYou don't have permission to reload the plugin!");
                 }
                 break;
-            case "reset":
-                if (player.hasPermission("oreabilities.admin") && args.length == 2) {
-                    Player target = plugin.getServer().getPlayer(args[1]);
-                    if (target != null) {
-                        dataManager.setPlayerOre(target, OreType.getRandomStarter());
-                        player.sendMessage("§aReset " + target.getName() + "'s ore type!");
-                        target.sendMessage("§eYour ore type has been reset by an admin!");
 
-                        // Restart action bar to show new ore type
-                        plugin.getActionBarManager().stopActionBar(target);
-                        plugin.getActionBarManager().startActionBar(target);
-                    } else {
-                        player.sendMessage("§cPlayer not found!");
-                    }
-                } else {
-                    player.sendMessage("§cUsage: /oreabilities reset <player> (Admin only)");
-                }
+            case "reset":
+                handleResetCommand(player, args);
                 break;
+
             default:
-                player.sendMessage("§cUnknown command. Use /oreabilities help for help.");
+                // Try to interpret as ore info request
+                handleOreInfoCommand(player, new String[]{"oreinfo", subCommand});
                 break;
         }
 
@@ -92,9 +113,9 @@ public class OreAbilitiesCommand implements CommandExecutor {
             return;
         }
 
-        player.sendMessage("§6=== Your Ore Abilities Info ===");
-        player.sendMessage("§eYour Ore Type: §a" + oreType.getDisplayName());
-        player.sendMessage("§eAbility Cooldown: §b" + oreType.getCooldown() + " seconds");
+        player.sendMessage("§6=== Your Ore Info ===");
+        player.sendMessage("§eOre Type: §a" + oreType.getDisplayName());
+        player.sendMessage("§eCooldown: §b" + oreType.getCooldown() + " seconds");
 
         if (dataManager.isOnCooldown(player)) {
             long remaining = dataManager.getRemainingCooldown(player);
@@ -108,17 +129,35 @@ public class OreAbilitiesCommand implements CommandExecutor {
             }
         }
 
-        player.sendMessage("§7Use §e/oreabilities oreinfo " + oreType.getDisplayName().toLowerCase() + " §7for detailed info");
-        player.sendMessage("§7Use §e/oreabilities help §7for all commands");
+        player.sendMessage("§7Type §e/ore " + oreType.getDisplayName().toLowerCase() + " §7for details");
+        player.sendMessage("§7Type §e/ore help §7for all commands");
+    }
+
+    private void showAllOres(Player player) {
+        player.sendMessage("§6=== All Ore Types ===");
+        player.sendMessage("§aStarter Ores:");
+        player.sendMessage("  §7• §eDirt §7- Earth's Blessing");
+        player.sendMessage("  §7• §eWood §7- Lumberjack's Fury");
+        player.sendMessage("  §7• §eStone §7- Stone Skin");
+        player.sendMessage("");
+        player.sendMessage("§bCraftable Ores:");
+        player.sendMessage("  §7• §eCoal §7- Sizzle");
+        player.sendMessage("  §7• §eCopper §7- Channel The Clouds");
+        player.sendMessage("  §7• §eIron §7- Bucket Roulette");
+        player.sendMessage("  §7• §eGold §7- Goldrush");
+        player.sendMessage("  §7• §eRedstone §7- Sticky Slime");
+        player.sendMessage("  §7• §eLapis §7- Level Replenish");
+        player.sendMessage("  §7• §eEmerald §7- Bring Home The Effects");
+        player.sendMessage("  §7• §eAmethyst §7- Crystal Cluster");
+        player.sendMessage("  §7• §eDiamond §7- Gleaming Power");
+        player.sendMessage("  §7• §eNetherite §7- Debris, Debris, Debris");
+        player.sendMessage("");
+        player.sendMessage("§7Use §e/ore <orename> §7for detailed information");
     }
 
     private void handleOreInfoCommand(Player player, String[] args) {
         if (args.length < 2) {
-            // Show list of all ores
-            player.sendMessage("§6=== All Ore Types ===");
-            player.sendMessage("§eStarter Ores: §aDirt, Wood, Stone");
-            player.sendMessage("§eCraftable Ores: §bCoal, Copper, Iron, Gold, Redstone, Lapis, Emerald, Amethyst, Diamond, Netherite");
-            player.sendMessage("§7Use §e/oreabilities oreinfo <orename> §7for detailed information");
+            showAllOres(player);
             return;
         }
 
@@ -128,8 +167,8 @@ public class OreAbilitiesCommand implements CommandExecutor {
         try {
             oreType = OreType.valueOf(oreName);
         } catch (IllegalArgumentException e) {
-            player.sendMessage("§cUnknown ore type: " + args[1]);
-            player.sendMessage("§7Available ores: Dirt, Wood, Stone, Coal, Copper, Iron, Gold, Redstone, Lapis, Emerald, Amethyst, Diamond, Netherite");
+            player.sendMessage("§cUnknown ore: §e" + args[1]);
+            player.sendMessage("§7Use §e/ore list §7to see all ores");
             return;
         }
 
@@ -137,7 +176,7 @@ public class OreAbilitiesCommand implements CommandExecutor {
     }
 
     private void showDetailedOreInfo(Player player, OreType oreType) {
-        player.sendMessage("§6=== " + oreType.getDisplayName() + " Ore Information ===");
+        player.sendMessage("§6=== " + oreType.getDisplayName() + " Ore ===");
         player.sendMessage("§eCooldown: §b" + oreType.getCooldown() + " seconds");
         player.sendMessage("§eType: " + (oreType.isStarter() ? "§aStarter Ore" : "§bCraftable Ore"));
 
@@ -149,6 +188,12 @@ public class OreAbilitiesCommand implements CommandExecutor {
         player.sendMessage("");
         player.sendMessage("§a✓ Upside: §7" + abilityInfo[2]);
         player.sendMessage("§c✗ Downside: §7" + abilityInfo[3]);
+
+        // Add admin command hint
+        if (player.hasPermission("oreabilities.admin")) {
+            player.sendMessage("");
+            player.sendMessage("§7Admin: §e/ore change " + oreType.getDisplayName().toLowerCase());
+        }
     }
 
     private String[] getOreAbilityInfo(OreType oreType) {
@@ -257,7 +302,7 @@ public class OreAbilitiesCommand implements CommandExecutor {
         }
 
         if (args.length < 2) {
-            player.sendMessage("§cUsage: /oreabilities set <oretype> [player]");
+            player.sendMessage("§cUsage: §e/ore change <oretype> [player]");
             player.sendMessage("§7Available ores: Dirt, Wood, Stone, Coal, Copper, Iron, Gold, Redstone, Lapis, Emerald, Amethyst, Diamond, Netherite");
             return;
         }
@@ -268,39 +313,105 @@ public class OreAbilitiesCommand implements CommandExecutor {
         try {
             oreType = OreType.valueOf(oreName);
         } catch (IllegalArgumentException e) {
-            player.sendMessage("§cUnknown ore type: " + args[1]);
-            player.sendMessage("§7Available ores: Dirt, Wood, Stone, Coal, Copper, Iron, Gold, Redstone, Lapis, Emerald, Amethyst, Diamond, Netherite");
+            player.sendMessage("§cUnknown ore type: §e" + args[1]);
+            player.sendMessage("§7Use §e/ore list §7to see all available ores");
             return;
         }
 
-        Player target = player; // Default to self
+        Player target; // Default to self
         if (args.length >= 3) {
             target = plugin.getServer().getPlayer(args[2]);
             if (target == null) {
                 player.sendMessage("§cPlayer '" + args[2] + "' not found or not online!");
                 return;
             }
+        } else {
+            target = player;
         }
 
-        // Set the ore type
+        // IMPORTANT: Clean up old ore effects before setting new one
+        OreType oldOreType = dataManager.getPlayerOre(target);
+        if (oldOreType != null) {
+            plugin.getPlayerListener().cleanupPlayerEffects(target, oldOreType);
+            target.sendMessage("§7Removed " + oldOreType.getDisplayName() + " ore effects...");
+        }
+
+        // Set the new ore type
         dataManager.setPlayerOre(target, oreType);
+
+        // Apply new ore effects
+        target.sendMessage("§eApplying " + oreType.getDisplayName() + " ore effects...");
 
         // Restart action bar to show new ore type immediately
         plugin.getActionBarManager().stopActionBar(target);
         plugin.getActionBarManager().startActionBar(target);
 
+        // Apply new passive effects after a short delay
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            // This calls the fixed method from PlayerListener
+            plugin.getAbilityManager().restartPlayerTimers(target);
+        }, 5L);
+
         if (target.equals(player)) {
-            player.sendMessage("§aYou have been given the " + oreType.getDisplayName() + " ore type!");
+            player.sendMessage("§aChanged your ore to §e" + oreType.getDisplayName() + "§a!");
         } else {
-            player.sendMessage("§aGave " + target.getName() + " the " + oreType.getDisplayName() + " ore type!");
-            target.sendMessage("§eYou have been given the " + oreType.getDisplayName() + " ore type by an admin!");
+            player.sendMessage("§aChanged " + target.getName() + "'s ore to §e" + oreType.getDisplayName() + "§a!");
+            target.sendMessage("§eAn admin changed your ore to §a" + oreType.getDisplayName() + "§e!");
         }
+    }
+
+    private void handleResetCommand(Player player, String[] args) {
+        if (!player.hasPermission("oreabilities.admin")) {
+            player.sendMessage("§cYou don't have permission to use this command!");
+            return;
+        }
+
+        if (args.length < 2) {
+            player.sendMessage("§cUsage: §e/ore reset <player>");
+            return;
+        }
+
+        // Make target effectively final from the start
+        final Player finalTarget = plugin.getServer().getPlayer(args[1]);
+        if (finalTarget == null) {
+            player.sendMessage("§cPlayer '" + args[1] + "' not found or not online!");
+            return;
+        }
+
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        OreType oldOreType = dataManager.getPlayerOre(finalTarget);
+
+        // Clean up old effects
+        if (oldOreType != null) {
+            plugin.getPlayerListener().cleanupPlayerEffects(finalTarget, oldOreType);
+        }
+
+        // Reset to random starter ore
+        OreType newOreType = OreType.getRandomStarter();
+        dataManager.setPlayerOre(finalTarget, newOreType);
+
+        // Restart action bar and apply new effects
+        plugin.getActionBarManager().stopActionBar(finalTarget);
+        plugin.getActionBarManager().startActionBar(finalTarget);
+
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            plugin.getAbilityManager().restartPlayerTimers(finalTarget);
+        }, 5L);
+
+        player.sendMessage("§aReset " + finalTarget.getName() + "'s ore to §e" + newOreType.getDisplayName() + "§a!");
+        finalTarget.sendMessage("§eYour ore has been reset to §a" + newOreType.getDisplayName() + " §eby an admin!");
     }
 
     private void handleBedrockCommand(Player player) {
         AbilityActivationManager activationManager = plugin.getActivationManager();
         boolean currentMode = activationManager.isBedrockMode(player);
         activationManager.setBedrockMode(player, !currentMode);
+
+        if (!currentMode) {
+            player.sendMessage("§aBedrock mode enabled! Use §e/ability §ato activate abilities.");
+        } else {
+            player.sendMessage("§7Bedrock mode disabled. Use §eShift+Right-click §7to activate abilities.");
+        }
     }
 
     private void handleAbilityCommand(Player player) {
@@ -308,49 +419,50 @@ public class OreAbilitiesCommand implements CommandExecutor {
         AbilityActivationManager activationManager = plugin.getActivationManager();
         if (!activationManager.isBedrockMode(player)) {
             player.sendMessage("§cThis command is only for Bedrock Edition players!");
-            player.sendMessage("§7Use §e/oreabilities bedrock §7to enable Bedrock mode");
+            player.sendMessage("§7Use §e/bedrock §7to enable Bedrock mode");
             return;
         }
 
         boolean success = plugin.getAbilityManager().useAbility(player);
         if (success) {
-            player.sendMessage("§8Ability activated via command");
+            player.sendMessage("§8Ability activated!");
         }
     }
 
     private void showHelp(Player player) {
         player.sendMessage("§6=== Ore Abilities Help ===");
-        player.sendMessage("§e/oreabilities info §7- Show your current ore info");
-        player.sendMessage("§e/oreabilities oreinfo [orename] §7- Show detailed ore information");
-        player.sendMessage("§e/oreabilities bedrock §7- Toggle Bedrock Edition mode");
-        player.sendMessage("§e/oreabilities ability §7- Use ability (Bedrock mode only)");
+        player.sendMessage("§eBasic Commands:");
+        player.sendMessage("  §e/ore §7- Show your current ore info");
+        player.sendMessage("  §e/ore list §7- Show all available ores");
+        player.sendMessage("  §e/ore <orename> §7- Get detailed ore info");
+        player.sendMessage("  §e/ability §7- Use ability (Bedrock mode only)");
+        player.sendMessage("  §e/bedrock §7- Toggle Bedrock Edition mode");
         player.sendMessage("");
 
         if (player.hasPermission("oreabilities.admin")) {
-            player.sendMessage("§c=== Admin Commands ===");
-            player.sendMessage("§e/oreabilities set <ore> [player] §7- Set ore type");
-            player.sendMessage("§e/oreabilities reset <player> §7- Reset player's ore");
-            player.sendMessage("§e/oreabilities reload §7- Reload plugin");
+            player.sendMessage("§cAdmin Commands:");
+            player.sendMessage("  §e/ore change <ore> [player] §7- Set ore type");
+            player.sendMessage("  §e/ore reset <player> §7- Reset player's ore");
+            player.sendMessage("  §e/ore reload §7- Reload plugin");
             player.sendMessage("");
         }
 
-        player.sendMessage("§6Other Commands:");
-        player.sendMessage("§e/trust <player> §7- Send trust request");
-        player.sendMessage("§e/untrust <player> §7- Remove trust");
-        player.sendMessage("§e/trustlist §7- List trusted players");
+        player.sendMessage("§6Trust System:");
+        player.sendMessage("  §e/trust <player> §7- Send trust request");
+        player.sendMessage("  §e/untrust <player> §7- Remove trust");
+        player.sendMessage("  §e/trustlist §7- List trusted players");
         player.sendMessage("");
-        player.sendMessage("§6How to use:");
 
+        player.sendMessage("§6How to Play:");
         AbilityActivationManager activationManager = plugin.getActivationManager();
         if (activationManager.isBedrockMode(player)) {
-            player.sendMessage("§7- Use §e/oreabilities ability §7to activate abilities");
+            player.sendMessage("  §7- Use §e/ability §7to activate abilities");
         } else {
-            player.sendMessage("§7- §eShift + Right-click §7to activate abilities");
+            player.sendMessage("  §7- §eShift + Right-click §7to activate abilities");
         }
-
-        player.sendMessage("§7- Craft ore items to unlock new ore types");
-        player.sendMessage("§7- Trust players to prevent friendly fire");
-        player.sendMessage("§7- Each ore has unique abilities and effects");
+        player.sendMessage("  §7- Craft ore items to unlock new ore types");
+        player.sendMessage("  §7- Trust players to prevent friendly fire");
+        player.sendMessage("  §7- Each ore has unique abilities and effects");
         player.sendMessage("");
         player.sendMessage("§cNote: §725% chance to shatter when crafting ores!");
     }

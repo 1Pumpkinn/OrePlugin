@@ -19,11 +19,11 @@ commands:
     description: List all trusted players
     usage: /trustlist
     permission: oreabilities.trust
-  oreabilities:
-    description: Main ore abilities command with detailed ore information
-    usage: /oreabilities [info|oreinfo|help|set|bedrock|ability|reload|reset]
+  ore:
+    description: Main ore command - simplified and easy to use
+    usage: /ore [info|list|help|change|reset|<orename>]
     permission: oreabilities.use
-    aliases: [oa, ore, oreinfo]
+    aliases: [oreabilities, oa]
   ability:
     description: Activate your ore ability (Bedrock Edition support)
     usage: /ability

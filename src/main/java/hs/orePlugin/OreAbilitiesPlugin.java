@@ -62,19 +62,19 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(activationManager, this);
         // RecipeManager registers itself as a listener in its constructor
 
-        // Register commands
+        // Register commands with new simplified structure
         OreAbilitiesCommand mainCommand = new OreAbilitiesCommand(this);
         TrustCommand trustCommand = new TrustCommand(this);
 
         getCommand("trust").setExecutor(trustCommand);
         getCommand("untrust").setExecutor(trustCommand);
         getCommand("trustlist").setExecutor(trustCommand);
-        getCommand("oreabilities").setExecutor(mainCommand);
+        getCommand("ore").setExecutor(mainCommand);
         getCommand("ability").setExecutor(mainCommand);
         getCommand("bedrock").setExecutor(mainCommand);
 
         getLogger().info("Ore Abilities Plugin has been enabled!");
-        getLogger().info("Features: Direct crafting system, enhanced ore info, admin commands, bedrock support!");
+        getLogger().info("Features: Simplified commands (/ore), effect cleanup, enhanced ore info!");
         getLogger().info("Crafting system initialized - recipes will be registered shortly...");
     }
 
