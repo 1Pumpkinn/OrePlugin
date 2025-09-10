@@ -299,68 +299,19 @@ public class AbilityListener implements Listener {
 
         Player player = (Player) event.getWhoClicked();
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
-        OreConfigs configs = plugin.getOreConfigs();
         OreType currentOreType = dataManager.getPlayerOre(player);
 
         ItemStack result = event.getRecipe().getResult();
 
+        // CRITICAL FIX: Only handle non-mastery items here
+        // Let RecipeManager handle all ore mastery crafting exclusively
         if (RecipeManager.isDirectOreItem(result)) {
-            OreType newOreType = RecipeManager.getOreTypeFromDirectItem(result);
-
-            if (newOreType == null) {
-                event.setCancelled(true);
-                player.sendMessage("§cError: Invalid ore type!");
-                return;
-            }
-
-            if (currentOreType == newOreType) {
-                event.setCancelled(true);
-                player.sendMessage("§cYou already have the " + newOreType.getDisplayName() + " ore ability!");
-                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
-                return;
-            }
-
-            double shatterChance = configs != null ? configs.getShatterChance() : 0.25;
-            if (random.nextDouble() < shatterChance) {
-                event.setCancelled(true);
-                player.sendMessage("§cThe " + newOreType.getDisplayName() + " ore mastery shattered during crafting!");
-                player.sendMessage("§7Try again - you might get lucky next time!");
-                player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
-                return;
-            }
-
-            event.setCancelled(true);
-
-            // FIXED: Remove ALL old ore effects before applying new ones
-            if (currentOreType != null) {
-                removeAllOreTypeEffectsFixed(player, currentOreType);
-
-                // CRITICAL FIX: Also clean up PlayerListener tracking
-                PlayerListener playerListener = plugin.getPlayerListener();
-                if (playerListener != null) {
-                    playerListener.cleanupPlayerEffects(player, currentOreType);
-                }
-
-                player.sendMessage("§e⚠ Replacing your " + currentOreType.getDisplayName() + " ore ability!");
-            }
-
-            dataManager.setPlayerOre(player, newOreType);
-            applyAllOreTypeEffectsFixed(player, newOreType);
-
-            String oreColor = getOreColor(newOreType);
-            player.sendMessage("§a✓ Successfully mastered the " + oreColor + newOreType.getDisplayName() + " §aore!");
-            player.sendMessage("§7Your new ability: §6" + getAbilityName(newOreType));
-
-            int cooldown = configs != null ? configs.getCooldown(newOreType) : newOreType.getCooldown();
-            player.sendMessage("§7Cooldown: §b" + cooldown + " seconds");
-            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
-
-            plugin.getActionBarManager().stopActionBar(player);
-            plugin.getActionBarManager().startActionBar(player);
-
+            // This is an ore mastery item - RecipeManager will handle it completely
+            // DO NOT apply any effects here - let RecipeManager do the shatter check first
             return;
         }
 
+        // Handle gold curse for regular items (non-mastery items)
         if (currentOreType == OreType.GOLD && isToolWeaponOrArmor(result.getType())) {
             new BukkitRunnable() {
                 @Override

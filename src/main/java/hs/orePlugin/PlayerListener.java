@@ -350,10 +350,8 @@ public class PlayerListener implements Listener {
     // FIXED: Apply ALL passive effects immediately and correctly with proper method calls
     private void applyAllPassiveEffectsFixed(Player player) {
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
-        OreType oreType = dataManager.getPlayerOre(player);
+        OreType oreType = dataManager.getPlayerOre(playser);
         if (oreType == null) return;
-
-        player.sendMessage("§eApplying " + oreType.getDisplayName() + " ore effects...");
 
         switch (oreType) {
             case DIRT:

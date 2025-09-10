@@ -48,39 +48,40 @@ public class RecipeManager implements Listener {
             return;
         }
 
-        OreType currentOreType = dataManager.getPlayerOre(player);
-
-        // Check if player already has this ore type
-        if (currentOreType == craftedOreType) {
-            event.setCancelled(true);
-            player.sendMessage("§cYou already have the " + craftedOreType.getDisplayName() + " ore ability!");
-            player.sendMessage("§7You cannot craft the same ore mastery twice!");
-            player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
-            return;
-        }
-
         // Always cancel the event to handle item consumption manually
         event.setCancelled(true);
 
         OreConfigs configs = plugin.getOreConfigs();
         double shatterChance = configs != null ? configs.getShatterChance() : 0.25;
 
+        // CRITICAL: Check if ore shatters BEFORE consuming materials or doing anything else
+        boolean shattered = random.nextDouble() < shatterChance;
+
         // Consume the crafting materials regardless of success/failure
         consumeCraftingMaterials(event.getInventory());
 
-        // Check if ore shatters
-        if (random.nextDouble() < shatterChance) {
+        // If ore shattered, exit immediately - do NOT apply any effects
+        if (shattered) {
             String oreColor = getOreColor(craftedOreType);
-            player.sendMessage("§c💥 The " + oreColor + craftedOreType.getDisplayName() + " §cmastery shattered during crafting!");
-            player.sendMessage("§7Your materials were consumed... try again!");
+            player.sendMessage("§c💥 The " + oreColor + craftedOreType.getDisplayName() + " §ore shattered during crafting!");
             player.playSound(player.getLocation(), org.bukkit.Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
-            return;
+
+            // IMPORTANT: Add additional safeguards to ensure no ore effects are applied
+            plugin.getLogger().info("Ore ore shattered for " + player.getName() + " - no effects applied");
+            return; // EXIT IMMEDIATELY - no ore effects should be applied
         }
+
+        // Only reach this point if crafting was successful (no shatter)
+        OreType currentOreType = dataManager.getPlayerOre(player);
 
         // Success: Remove old ore effects and apply new ones
         if (currentOreType != null) {
+            if (currentOreType == craftedOreType) {
+                player.sendMessage("§e⚡ Resetting your " + craftedOreType.getDisplayName() + " ore!");
+            } else {
+                player.sendMessage("§e⚠ Replacing your " + currentOreType.getDisplayName() + " ore ability with " + craftedOreType.getDisplayName() + "!");
+            }
             removeOreTypeEffects(player, currentOreType);
-            player.sendMessage("§e⚠ Replacing your " + currentOreType.getDisplayName() + " ore ability!");
         }
 
         // Give the new ore mastery
@@ -94,36 +95,33 @@ public class RecipeManager implements Listener {
 
         // Success messages
         String oreColor = getOreColor(craftedOreType);
-        player.sendMessage("§a✨ Successfully mastered the " + oreColor + craftedOreType.getDisplayName() + " §aOre!");
-        player.sendMessage("§7Your new ability: §6" + getAbilityName(craftedOreType));
+        if (currentOreType == craftedOreType) {
+            player.sendMessage("§a✨ Successfully refreshed the " + oreColor + craftedOreType.getDisplayName() + " §aOre!");
+            player.sendMessage("§7All effects have been reset and reapplied!");
+        } else {
+            player.sendMessage("§a✨ Successfully obtained the " + oreColor + craftedOreType.getDisplayName() + " §aOre!");
+            player.sendMessage("§7Your new ability: §6" + getAbilityName(craftedOreType));
+        }
 
         int cooldown = configs != null ? configs.getCooldown(craftedOreType) : craftedOreType.getCooldown();
         player.sendMessage("§7Cooldown: §b" + cooldown + " seconds");
         player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
+
+        // Log successful crafting for debugging
+        plugin.getLogger().info("Successfully applied " + craftedOreType.name() + " ore to " + player.getName());
     }
 
     @EventHandler
     public void onPrepareItemCraft(PrepareItemCraftEvent event) {
-        if (event.getRecipe() == null) return;
+        // REMOVED: No longer prevent crafting if player already has the ore
+        // This allows players to craft the same ore multiple times
 
+        // Keep the event handler but don't do any prevention logic
+        if (event.getRecipe() == null) return;
         ItemStack result = event.getRecipe().getResult();
         if (!isDirectOreItem(result)) return;
 
-        // Check if any viewer is a player and already has this ore
-        for (org.bukkit.entity.HumanEntity viewer : event.getViewers()) {
-            if (viewer instanceof Player) {
-                Player player = (Player) viewer;
-                PlayerDataManager dataManager = plugin.getPlayerDataManager();
-                OreType craftedOreType = getOreTypeFromDirectItem(result);
-                OreType currentOreType = dataManager.getPlayerOre(player);
-
-                if (currentOreType == craftedOreType) {
-                    // Set result to null to prevent crafting
-                    event.getInventory().setResult(null);
-                    return;
-                }
-            }
-        }
+        // All ore masteries can now always be crafted
     }
 
     /**
@@ -272,13 +270,13 @@ public class RecipeManager implements Listener {
     }
 
     public void registerAllRecipes() {
-        plugin.getLogger().info("Registering ore mastery recipes...");
+        plugin.getLogger().info("Registering ore recipes...");
 
         for (OreType oreType : recipeDefinitions.keySet()) {
             registerRecipe(oreType, recipeDefinitions.get(oreType));
         }
 
-        plugin.getLogger().info("Registered " + registeredRecipes.size() + " ore mastery recipes!");
+        plugin.getLogger().info("Registered " + registeredRecipes.size() + " ore recipes!");
     }
 
     private void registerRecipe(OreType oreType, RecipeDefinition def) {
@@ -331,7 +329,7 @@ public class RecipeManager implements Listener {
                     "",
                     "§c⚠ " + shatterPercent + "% chance to shatter during crafting!",
                     "§7Materials will be consumed even if shattered",
-                    "§c⚠ Cannot craft if you already have this ore!",
+                    "§a✓ Can be crafted multiple times to refresh effects",
                     "§8Ore Abilities Plugin"
             ));
             meta.setCustomModelData(1000 + oreType.ordinal());

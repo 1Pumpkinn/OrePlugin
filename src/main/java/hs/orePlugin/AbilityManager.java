@@ -297,7 +297,7 @@ public class AbilityManager {
         ItemStack weapon = player.getInventory().getItemInMainHand();
         if (weapon != null && weapon.getType() == Material.DIAMOND_SWORD) {
             activeEffects.put(player.getUniqueId(), true);
-            player.sendMessage("§bGleaming Power activated! Diamond sword deals 2x damage for 5 seconds!"); // Fixed message to show 2x
+            player.sendMessage("§bGleaming Power activated! Diamond sword deals 1.4x damage for 5 seconds!");
             player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 2.0f);
 
             new BukkitRunnable() {
