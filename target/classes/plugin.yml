@@ -32,6 +32,10 @@ commands:
     description: Toggle Bedrock Edition mode for ability activation
     usage: /bedrock
     permission: oreabilities.use
+  orecd:
+    description: Reset ore ability cooldown (Admin only)
+    usage: /orecd reset [player]
+    permission: oreabilities.admin
 
 permissions:
   oreabilities.*:
