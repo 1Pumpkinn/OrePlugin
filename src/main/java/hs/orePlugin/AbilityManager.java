@@ -24,10 +24,10 @@ public class AbilityManager {
     private final OreAbilitiesPlugin plugin;
     private final Map<UUID, Boolean> activeEffects = new HashMap<>();
     private final Map<UUID, Boolean> copperLightningActive = new HashMap<>();
-    private final Map<UUID, Integer> noJumpEffects = new HashMap<>(); // NEW: Track no-jump effects
+    private final Map<UUID, Integer> noJumpEffects = new HashMap<>();
     private final Map<UUID, BukkitTask> ironDropTasks = new HashMap<>();
     private final Map<UUID, BukkitTask> amethystGlowTasks = new HashMap<>();
-    private final Map<UUID, BukkitTask> noJumpTasks = new HashMap<>(); // NEW: Track no-jump tasks
+    private final Map<UUID, BukkitTask> noJumpTasks = new HashMap<>();
     private final Random random = new Random();
 
     public AbilityManager(OreAbilitiesPlugin plugin) {
@@ -56,7 +56,6 @@ public class AbilityManager {
             return false;
         }
 
-        // Check emerald downside - need at least 4 stacks of emeralds
         if (oreType == OreType.EMERALD && !hasRequiredEmeralds(player)) {
             player.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, Integer.MAX_VALUE, 0, false, false));
         }
@@ -83,7 +82,7 @@ public class AbilityManager {
                 emeraldCount += item.getAmount();
             }
         }
-        return emeraldCount >= 256; // 4 stacks of 64
+        return emeraldCount >= 256;
     }
 
     private void executeAbility(Player player, OreType oreType) {
@@ -130,14 +129,13 @@ public class AbilityManager {
         }
     }
 
-    // FIXED: Dirt ability gives 4 absorption hearts for 15 seconds
     private void dirtAbility(Player player) {
         Location loc = player.getLocation();
         Material below = loc.subtract(0, 1, 0).getBlock().getType();
-        loc.add(0, 1, 0); // Reset location
+        loc.add(0, 1, 0);
 
         if (below == Material.GRASS_BLOCK || below == Material.DIRT) {
-            player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 300, 3)); // +4 hearts for 15s (level 3 = 4 hearts)
+            player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 300, 3));
             player.sendMessage("§aEarth's Blessing activated! +4 absorption hearts for 15 seconds!");
             player.playSound(player.getLocation(), Sound.BLOCK_GRASS_BREAK, 1.0f, 1.0f);
         } else {
@@ -156,7 +154,7 @@ public class AbilityManager {
                 activeEffects.remove(player.getUniqueId());
                 player.sendMessage("§eLumberjack's Fury has ended.");
             }
-        }.runTaskLater(plugin, 100); // 5 seconds
+        }.runTaskLater(plugin, 100);
     }
 
     private void stoneAbility(Player player) {
@@ -209,7 +207,7 @@ public class AbilityManager {
                 activeEffects.remove(player.getUniqueId());
                 player.sendMessage("§bChannel The Clouds has ended.");
             }
-        }.runTaskLater(plugin, 200); // 10 seconds
+        }.runTaskLater(plugin, 200);
     }
 
     private void ironAbility(Player player) {
@@ -228,8 +226,8 @@ public class AbilityManager {
     }
 
     private void goldAbility(Player player) {
-        player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, 200, 4)); // Haste 5 for 10s
-        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 200, 2)); // Speed 3 for 10s
+        player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, 200, 4));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 200, 2));
         player.sendMessage("§eGoldrush activated! Haste 5 and Speed 3 for 10 seconds!");
         player.playSound(player.getLocation(), Sound.BLOCK_METAL_BREAK, 1.0f, 1.0f);
     }
@@ -244,13 +242,13 @@ public class AbilityManager {
             public void run() {
                 activeEffects.remove(player.getUniqueId());
             }
-        }.runTaskLater(plugin, 1200); // Effect lasts until used or 60 seconds pass
+        }.runTaskLater(plugin, 1200);
     }
 
-    // UPDATED: Lapis ability now allows enchanting without levels
     private void lapisAbility(Player player) {
         activeEffects.put(player.getUniqueId(), true);
-        player.sendMessage("§9Level Replenish activated! Enchanting costs no levels and EXP gives regen for 30 seconds!");
+        player.sendMessage("§9Level Replenish activated! EXP gives regeneration for 30 seconds!");
+        player.sendMessage("§7Note: Anvil enchanting costs no XP as a passive ability!");
         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
 
         new BukkitRunnable() {
@@ -259,7 +257,7 @@ public class AbilityManager {
                 activeEffects.remove(player.getUniqueId());
                 player.sendMessage("§bLevel Replenish has ended.");
             }
-        }.runTaskLater(plugin, 600); // 30 seconds
+        }.runTaskLater(plugin, 600);
     }
 
     private void emeraldAbility(Player player) {
@@ -268,7 +266,6 @@ public class AbilityManager {
             return;
         }
 
-        // All beacon effects level 1 for 20 seconds
         PotionEffectType[] beaconEffects = {
                 PotionEffectType.SPEED, PotionEffectType.HASTE, PotionEffectType.RESISTANCE,
                 PotionEffectType.JUMP_BOOST, PotionEffectType.STRENGTH, PotionEffectType.REGENERATION
@@ -293,7 +290,7 @@ public class AbilityManager {
                 activeEffects.remove(player.getUniqueId());
                 player.sendMessage("§5Crystal Cluster has ended.");
             }
-        }.runTaskLater(plugin, 200); // 10 seconds
+        }.runTaskLater(plugin, 200);
     }
 
     private void diamondAbility(Player player) {
@@ -309,7 +306,7 @@ public class AbilityManager {
                     activeEffects.remove(player.getUniqueId());
                     player.sendMessage("§3Gleaming Power has ended.");
                 }
-            }.runTaskLater(plugin, 100); // 5 seconds
+            }.runTaskLater(plugin, 100);
         } else {
             player.sendMessage("§cYou must be holding a diamond sword!");
         }
@@ -335,11 +332,9 @@ public class AbilityManager {
         player.playSound(player.getLocation(), Sound.UI_STONECUTTER_TAKE_RESULT, 1.0f, 0.5f);
     }
 
-    // NEW: Add no-jump effect for sticky slime
     public void addNoJumpEffect(UUID playerUUID, int durationTicks) {
         noJumpEffects.put(playerUUID, durationTicks);
 
-        // Start a task to count down the duration
         BukkitTask task = new BukkitRunnable() {
             int remaining = durationTicks;
 
@@ -359,12 +354,10 @@ public class AbilityManager {
         noJumpTasks.put(playerUUID, task);
     }
 
-    // NEW: Check if player has no-jump effect
     public boolean hasNoJumpEffect(UUID playerUUID) {
         return noJumpEffects.containsKey(playerUUID);
     }
 
-    // NEW: Reset cooldown method for admin command
     public boolean resetCooldown(Player player) {
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
         if (dataManager.isOnCooldown(player)) {
@@ -427,7 +420,7 @@ public class AbilityManager {
         ItemStack[] inventory = player.getInventory().getContents();
         java.util.List<Integer> validSlots = new java.util.ArrayList<>();
 
-        for (int i = 0; i < 36; i++) { // Only check main inventory, not armor
+        for (int i = 0; i < 36; i++) {
             if (inventory[i] != null && inventory[i].getType() != Material.AIR) {
                 validSlots.add(i);
             }
@@ -459,7 +452,6 @@ public class AbilityManager {
         plugin.getLogger().info("Iron drop successful for " + player.getName() + " - dropped " + itemToDrop.getType().name());
     }
 
-    // FIXED: Amethyst permanent glowing implementation
     public void startAmethystGlowing(Player player) {
         UUID uuid = player.getUniqueId();
 
@@ -491,7 +483,7 @@ public class AbilityManager {
 
                 setupAmethystTeam(player);
             }
-        }.runTaskTimer(plugin, 600L, 600L); // Every 30 seconds
+        }.runTaskTimer(plugin, 600L, 600L);
 
         amethystGlowTasks.put(uuid, task);
     }
@@ -576,7 +568,7 @@ public class AbilityManager {
         UUID uuid = player.getUniqueId();
         activeEffects.remove(uuid);
         copperLightningActive.remove(uuid);
-        noJumpEffects.remove(uuid); // NEW: Clean up no-jump effects
+        noJumpEffects.remove(uuid);
 
         if (ironDropTasks.containsKey(uuid)) {
             ironDropTasks.get(uuid).cancel();
@@ -588,7 +580,6 @@ public class AbilityManager {
             amethystGlowTasks.remove(uuid);
         }
 
-        // NEW: Clean up no-jump tasks
         if (noJumpTasks.containsKey(uuid)) {
             noJumpTasks.get(uuid).cancel();
             noJumpTasks.remove(uuid);

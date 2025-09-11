@@ -1,6 +1,5 @@
 package hs.orePlugin;
 
-import org.bukkit.ChatColor;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -9,9 +8,12 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.inventory.PrepareAnvilEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.enchantment.EnchantItemEvent;
+import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.Material;
 import org.bukkit.potion.PotionEffect;
@@ -35,10 +37,10 @@ public class AbilityListener implements Listener {
     private final OreAbilitiesPlugin plugin;
     private final Random random = new Random();
     private final Map<UUID, Long> lastWaterDamageTime = new HashMap<>();
-    private final Map<UUID, Long> lastRainDamageTime = new HashMap<>(); // NEW: Rain damage tracking
+    private final Map<UUID, Long> lastRainDamageTime = new HashMap<>();
     private final Map<UUID, BukkitRunnable> copperArmorTasks = new HashMap<>();
     private final Map<UUID, BukkitRunnable> diamondArmorTasks = new HashMap<>();
-    private final Map<UUID, BukkitRunnable> coalRainTasks = new HashMap<>(); // NEW: Coal rain damage tasks
+    private final Map<UUID, BukkitRunnable> coalRainTasks = new HashMap<>();
 
     public AbilityListener(OreAbilitiesPlugin plugin) {
         this.plugin = plugin;
@@ -81,7 +83,6 @@ public class AbilityListener implements Listener {
                     Location strikeLocation = event.getEntity().getLocation();
                     event.getEntity().getWorld().strikeLightning(strikeLocation);
 
-                    // Better lightning protection for copper user
                     if (attacker.getLocation().distance(strikeLocation) < 10) {
                         new BukkitRunnable() {
                             @Override
@@ -98,7 +99,7 @@ public class AbilityListener implements Listener {
                 if (abilityManager.hasActiveEffect(attacker)) {
                     ItemStack weapon = attacker.getInventory().getItemInMainHand();
                     if (weapon != null && weapon.getType() == Material.DIAMOND_SWORD) {
-                        event.setDamage(event.getDamage() * 1.4); // CHANGED: 1.4x damage instead of 2x
+                        event.setDamage(event.getDamage() * 1.4);
                         attacker.playSound(attacker.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 2.0f);
                     }
                 }
@@ -107,8 +108,7 @@ public class AbilityListener implements Listener {
             case REDSTONE:
                 if (abilityManager.hasActiveEffect(attacker) && event.getEntity() instanceof Player) {
                     Player target = (Player) event.getEntity();
-                    // CHANGED: Disable jumping completely for 10 seconds
-                    plugin.getAbilityManager().addNoJumpEffect(target.getUniqueId(), 200); // 10 seconds
+                    plugin.getAbilityManager().addNoJumpEffect(target.getUniqueId(), 200);
                     target.sendMessage("§4Sticky Slime! You cannot jump for 10 seconds!");
                     attacker.sendMessage("§cSticky Slime effect applied to " + target.getName() + "!");
                     plugin.getAbilityManager().removeActiveEffect(attacker);
@@ -118,7 +118,7 @@ public class AbilityListener implements Listener {
             case AMETHYST:
                 ItemStack offhand = attacker.getInventory().getItemInOffHand();
                 if (offhand != null && offhand.getType() == Material.AMETHYST_SHARD) {
-                    event.setDamage(event.getDamage() * 1.1); // CHANGED: 1.1x damage instead of +1.5
+                    event.setDamage(event.getDamage() * 1.1);
                 }
                 break;
 
@@ -194,16 +194,13 @@ public class AbilityListener implements Listener {
 
         if (oreType == OreType.COAL) {
             handleCoalWaterDamage(player);
-            handleCoalRainDamage(player); // NEW: Rain damage for coal players
+            handleCoalRainDamage(player);
         }
 
-        // NEW: Prevent jumping for redstone sticky slime effect
         if (oreType != null && plugin.getAbilityManager().hasNoJumpEffect(player.getUniqueId())) {
-            // Cancel any upward movement that looks like jumping
             if (event.getTo() != null && event.getFrom() != null) {
                 double yDiff = event.getTo().getY() - event.getFrom().getY();
                 if (yDiff > 0.1 && !player.isFlying() && player.getVelocity().getY() > 0.1) {
-                    // Player is trying to jump, cancel it
                     Location newLoc = event.getFrom().clone();
                     newLoc.setYaw(event.getTo().getYaw());
                     newLoc.setPitch(event.getTo().getPitch());
@@ -248,7 +245,6 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // NEW: Lapis enchanting without levels
     @EventHandler
     public void onEnchantItem(EnchantItemEvent event) {
         if (!(event.getEnchanter() instanceof Player)) return;
@@ -259,11 +255,9 @@ public class AbilityListener implements Listener {
         AbilityManager abilityManager = plugin.getAbilityManager();
 
         if (oreType == OreType.LAPIS && abilityManager.hasActiveEffect(player)) {
-            // Store original levels
             int originalLevel = player.getLevel();
             float originalExp = player.getExp();
 
-            // Let the enchantment happen, then restore levels
             new BukkitRunnable() {
                 @Override
                 public void run() {
@@ -272,6 +266,36 @@ public class AbilityListener implements Listener {
                     player.sendMessage("§9No levels consumed!");
                 }
             }.runTaskLater(plugin, 1);
+        }
+    }
+
+    @EventHandler
+    public void onPrepareAnvil(PrepareAnvilEvent event) {
+        if (!(event.getView().getPlayer() instanceof Player player)) return;
+
+        OreType oreType = plugin.getPlayerDataManager().getPlayerOre(player);
+
+        if (oreType == OreType.LAPIS) {
+            if (event.getResult() != null && !event.getResult().getType().isAir()) {
+                event.getInventory().setRepairCost(0);
+            }
+        }
+    }
+
+    @EventHandler
+    public void onAnvilClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!(event.getInventory() instanceof AnvilInventory anvil)) return;
+
+        OreType oreType = plugin.getPlayerDataManager().getPlayerOre(player);
+
+        if (oreType == OreType.LAPIS && event.getSlotType() == InventoryType.SlotType.RESULT) {
+            // Make sure they are taking the result
+            if (event.getCurrentItem() != null && !event.getCurrentItem().getType().isAir()) {
+                // Override level cost
+                anvil.setRepairCost(0);
+                player.setLevel(player.getLevel());
+            }
         }
     }
 
@@ -308,16 +332,15 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // NEW: Handle rain damage for coal players
     private void handleCoalRainDamage(Player player) {
         if (player.getWorld().hasStorm() && !isUnderShelter(player)) {
             UUID uuid = player.getUniqueId();
             long currentTime = System.currentTimeMillis();
 
             if (!lastRainDamageTime.containsKey(uuid) ||
-                    currentTime - lastRainDamageTime.get(uuid) > 2000) { // Every 2 seconds
+                    currentTime - lastRainDamageTime.get(uuid) > 2000) {
 
-                double damage = 1.0; // 1 damage every 2 seconds in rain
+                double damage = 1.0;
                 player.damage(damage);
                 player.playSound(player.getLocation(), Sound.BLOCK_LAVA_EXTINGUISH, 0.5f, 2.0f);
                 lastRainDamageTime.put(uuid, currentTime);
@@ -327,17 +350,15 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // NEW: Check if player is under shelter (blocks above them)
     private boolean isUnderShelter(Player player) {
         Location loc = player.getLocation();
-        // Check if there are blocks above the player within 10 blocks
         for (int y = 1; y <= 10; y++) {
             Block block = loc.clone().add(0, y, 0).getBlock();
             if (block.getType().isSolid()) {
-                return true; // Player is under shelter
+                return true;
             }
         }
-        return false; // Player is exposed to rain
+        return false;
     }
 
     private boolean isDripstoneOrStalactiteDamage(EntityDamageEvent event) {
@@ -380,15 +401,10 @@ public class AbilityListener implements Listener {
 
         ItemStack result = event.getRecipe().getResult();
 
-        // CRITICAL FIX: Only handle non-mastery items here
-        // Let RecipeManager handle all ore mastery crafting exclusively
         if (RecipeManager.isDirectOreItem(result)) {
-            // This is an ore mastery item - RecipeManager will handle it completely
-            // DO NOT apply any effects here - let RecipeManager do the shatter check first
             return;
         }
 
-        // Handle gold curse for regular items (non-mastery items)
         if (currentOreType == OreType.GOLD && isToolWeaponOrArmor(result.getType())) {
             new BukkitRunnable() {
                 @Override
@@ -426,13 +442,10 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // FIXED: Complete and comprehensive ore type effect application - MADE PUBLIC
     public void applyAllOreTypeEffectsFixed(Player player, OreType oreType) {
         switch (oreType) {
             case DIRT:
-                // FIXED: Dirt gets diamond-level armor protection (20 armor points) but only with full leather armor
                 checkAndApplyDirtArmor(player);
-                // FIXED: Apply mining fatigue when not wearing full leather
                 checkAndApplyDirtMiningFatigue(player);
                 break;
             case IRON:
@@ -458,16 +471,13 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // MADE PUBLIC so RecipeManager can access it
     public void removeAllOreTypeEffectsFixed(Player player, OreType oreType) {
         switch (oreType) {
             case DIRT:
-                // FIXED: Remove all dirt effects completely
                 player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
-                // Reset armor to normal
                 AttributeInstance dirtArmor = player.getAttribute(Attribute.ARMOR);
                 if (dirtArmor != null) {
-                    dirtArmor.setBaseValue(0); // Reset to default
+                    dirtArmor.setBaseValue(0);
                 }
                 break;
             case IRON:
@@ -492,35 +502,23 @@ public class AbilityListener implements Listener {
                 stopDiamondArmorProtectionTimer(player);
                 break;
             case STONE:
-                // FIXED: Properly remove stone effects
                 player.removePotionEffect(PotionEffectType.REGENERATION);
                 player.removePotionEffect(PotionEffectType.SLOWNESS);
                 break;
             case COAL:
-                // Remove coal water damage tracking
                 lastWaterDamageTime.remove(player.getUniqueId());
-                lastRainDamageTime.remove(player.getUniqueId()); // NEW: Remove rain damage tracking
-                stopCoalRainTimer(player); // NEW: Stop rain timer
+                lastRainDamageTime.remove(player.getUniqueId());
+                stopCoalRainTimer(player);
                 break;
             case NETHERITE:
-                // No persistent effects to remove for netherite
-                break;
             case REDSTONE:
-                // No persistent effects to remove for redstone
-                break;
             case LAPIS:
-                // No persistent effects to remove for lapis
-                break;
             case GOLD:
-                // No persistent effects to remove for gold
-                break;
             case WOOD:
-                // No persistent effects to remove for wood
                 break;
         }
     }
 
-    // FIXED: Dirt ore effects implementation
     private void checkAndApplyDirtArmor(Player player) {
         ItemStack[] armor = player.getInventory().getArmorContents();
         boolean hasFullLeatherArmor = true;
@@ -535,10 +533,8 @@ public class AbilityListener implements Listener {
         AttributeInstance armorAttribute = player.getAttribute(Attribute.ARMOR);
         if (armorAttribute != null) {
             if (hasFullLeatherArmor) {
-                // Give diamond-level armor (20 armor points)
                 armorAttribute.setBaseValue(20);
             } else {
-                // Reset to normal armor calculation
                 armorAttribute.setBaseValue(0);
             }
         }
@@ -564,7 +560,6 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // NEW: Start coal rain timer
     public void startCoalRainTimer(Player player) {
         stopCoalRainTimer(player);
 
@@ -582,11 +577,10 @@ public class AbilityListener implements Listener {
             }
         };
 
-        task.runTaskTimer(plugin, 40, 40); // Every 2 seconds
+        task.runTaskTimer(plugin, 40, 40);
         coalRainTasks.put(player.getUniqueId(), task);
     }
 
-    // NEW: Stop coal rain timer
     public void stopCoalRainTimer(Player player) {
         BukkitRunnable task = coalRainTasks.remove(player.getUniqueId());
         if (task != null) {
@@ -594,7 +588,6 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // FIXED: Copper armor durability timer (2x faster breaking) - Made public so other classes can access
     public void startCopperArmorDurabilityTimer(Player player) {
         stopCopperArmorDurabilityTimer(player);
 
@@ -608,7 +601,6 @@ public class AbilityListener implements Listener {
                     return;
                 }
 
-                // Damage armor pieces at 2x rate
                 ItemStack[] armorContents = player.getInventory().getArmorContents();
                 boolean armorDamaged = false;
 
@@ -620,7 +612,7 @@ public class AbilityListener implements Listener {
                             int maxDurability = armor.getType().getMaxDurability();
 
                             if (maxDurability > 0 && currentDamage < maxDurability) {
-                                damageable.setDamage(currentDamage + 2); // 2x faster degradation
+                                damageable.setDamage(currentDamage + 2);
                                 armor.setItemMeta((ItemMeta) damageable);
                                 armorDamaged = true;
                             }
@@ -634,11 +626,10 @@ public class AbilityListener implements Listener {
             }
         };
 
-        task.runTaskTimer(plugin, 100, 100); // Every 5 seconds
+        task.runTaskTimer(plugin, 100, 100);
         copperArmorTasks.put(player.getUniqueId(), task);
     }
 
-    // FIXED: Made public so other classes can access
     public void stopCopperArmorDurabilityTimer(Player player) {
         BukkitRunnable task = copperArmorTasks.remove(player.getUniqueId());
         if (task != null) {
@@ -646,7 +637,6 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // FIXED: Diamond armor protection timer (2x slower breaking) - Made public so other classes can access
     public void startDiamondArmorProtectionTimer(Player player) {
         stopDiamondArmorProtectionTimer(player);
 
@@ -662,10 +652,8 @@ public class AbilityListener implements Listener {
                     return;
                 }
 
-                // Skip every other damage tick to make armor last 2x longer
                 skipCounter++;
                 if (skipCounter % 2 == 0) {
-                    // Repair armor slightly to counteract normal damage
                     ItemStack[] armorContents = player.getInventory().getArmorContents();
                     boolean armorRepaired = false;
 
@@ -691,78 +679,14 @@ public class AbilityListener implements Listener {
             }
         };
 
-        task.runTaskTimer(plugin, 100, 100); // Every 5 seconds
+        task.runTaskTimer(plugin, 100, 100);
         diamondArmorTasks.put(player.getUniqueId(), task);
     }
 
-    // FIXED: Made public so other classes can access
     public void stopDiamondArmorProtectionTimer(Player player) {
         BukkitRunnable task = diamondArmorTasks.remove(player.getUniqueId());
         if (task != null) {
             task.cancel();
-        }
-    }
-
-    private String getOreColor(OreType oreType) {
-        switch (oreType) {
-            case DIRT: return "§6";
-            case WOOD: return "§e";
-            case STONE: return "§7";
-            case COAL: return "§8";
-            case COPPER: return "§c";
-            case IRON: return "§f";
-            case GOLD: return "§e";
-            case REDSTONE: return "§4";
-            case LAPIS: return "§9";
-            case EMERALD: return "§a";
-            case AMETHYST: return "§d";
-            case DIAMOND: return "§b";
-            case NETHERITE: return "§8";
-            default: return "§7";
-        }
-    }
-
-    private String getAbilityName(OreType oreType) {
-        switch (oreType) {
-            case DIRT: return "Earth's Blessing";
-            case WOOD: return "Lumberjack's Fury";
-            case STONE: return "Stone Skin";
-            case COAL: return "Sizzle";
-            case COPPER: return "Channel The Clouds";
-            case IRON: return "Bucket Roulette";
-            case GOLD: return "Goldrush";
-            case REDSTONE: return "Sticky Slime";
-            case LAPIS: return "Level Replenish";
-            case EMERALD: return "Bring Home The Effects";
-            case AMETHYST: return "Crystal Cluster";
-            case DIAMOND: return "Gleaming Power";
-            case NETHERITE: return "Debris, Debris, Debris";
-            default: return "Unknown Ability";
-        }
-    }
-
-    @EventHandler
-    public void onInventoryClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player)) return;
-
-        Player player = (Player) event.getWhoClicked();
-        PlayerDataManager dataManager = plugin.getPlayerDataManager();
-        OreType oreType = dataManager.getPlayerOre(player);
-
-        // FIXED: Lapis can use anvils without using XP levels
-        if (oreType == OreType.LAPIS && event.getInventory().getType().name().contains("ANVIL")) {
-            // Allow anvil use but restore XP after
-            new BukkitRunnable() {
-                int originalLevel = player.getLevel();
-                float originalExp = player.getExp();
-
-                @Override
-                public void run() {
-                    player.setLevel(originalLevel);
-                    player.setExp(originalExp);
-                    player.sendMessage("§9Lapis Upside! No XP consumed for anvil use!");
-                }
-            }.runTaskLater(plugin, 1);
         }
     }
 
@@ -803,7 +727,6 @@ public class AbilityListener implements Listener {
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
         OreType oreType = dataManager.getPlayerOre(player);
 
-        // FIXED: Lapis prevents trading with villagers
         if (oreType == OreType.LAPIS && event.getRightClicked() instanceof Villager) {
             event.setCancelled(true);
             player.sendMessage("§cLapis prevents you from trading with villagers!");
@@ -811,36 +734,21 @@ public class AbilityListener implements Listener {
     }
 
     @EventHandler
-    public void onPlayerItemBreak(PlayerItemBreakEvent event) {
+    public void onPlayerItemDamage(PlayerItemDamageEvent event) {
         Player player = event.getPlayer();
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
         OreType oreType = dataManager.getPlayerOre(player);
 
-        // FIXED: Dirt ore makes leather armor unbreakable
         if (oreType == OreType.DIRT) {
-            ItemStack brokenItem = event.getBrokenItem();
-            if (brokenItem.getType().name().contains("LEATHER")) {
-                // Give them a new leather armor piece
-                ItemStack replacement = new ItemStack(brokenItem.getType());
-                if (brokenItem.hasItemMeta()) {
-                    replacement.setItemMeta(brokenItem.getItemMeta());
-                }
-
-                // Add to inventory or drop if full
-                if (player.getInventory().firstEmpty() != -1) {
-                    player.getInventory().addItem(replacement);
-                } else {
-                    player.getWorld().dropItemNaturally(player.getLocation(), replacement);
-                }
-
-                player.sendMessage("§6Dirt blessing! Your leather armor was instantly replaced!");
+            ItemStack item = event.getItem();
+            if (item != null && item.getType().name().contains("LEATHER")) {
+                event.setCancelled(true);
             }
         }
     }
 
     @EventHandler
     public void onPlayerArmorStandManipulate(PlayerArmorStandManipulateEvent event) {
-        // Check for dirt ore effects when armor changes
         Player player = event.getPlayer();
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
         OreType oreType = dataManager.getPlayerOre(player);
@@ -865,12 +773,11 @@ public class AbilityListener implements Listener {
                 name.contains("_BOOTS");
     }
 
-    // Cleanup method for player logout
     public void cleanup(Player player) {
         lastWaterDamageTime.remove(player.getUniqueId());
-        lastRainDamageTime.remove(player.getUniqueId()); // NEW: Clean up rain damage tracking
+        lastRainDamageTime.remove(player.getUniqueId());
         stopCopperArmorDurabilityTimer(player);
         stopDiamondArmorProtectionTimer(player);
-        stopCoalRainTimer(player); // NEW: Clean up rain timer
+        stopCoalRainTimer(player);
     }
 }

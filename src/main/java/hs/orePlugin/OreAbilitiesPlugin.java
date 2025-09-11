@@ -26,7 +26,6 @@ public class OreAbilitiesPlugin extends JavaPlugin {
     public void onEnable() {
         instance = this;
 
-        // Create plugin folder and files
         if (!getDataFolder().exists()) {
             getDataFolder().mkdirs();
         }
@@ -35,7 +34,6 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         setupPlayerDataFile();
         this.oreConfigs = new OreConfigs(this);
 
-        // Initialize managers in correct order
         playerDataManager = new PlayerDataManager(this);
         abilityManager = new AbilityManager(this);
         abilityListener = new AbilityListener(this);
@@ -44,25 +42,20 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         actionBarManager = new ActionBarManager(this);
         activationManager = new AbilityActivationManager(this);
 
-        // Initialize recipe manager last (it needs other managers to be ready)
         recipeManager = new RecipeManager(this);
 
-        // Register recipes after a short delay to ensure server is fully loaded
         new BukkitRunnable() {
             @Override
             public void run() {
                 recipeManager.registerAllRecipes();
                 getLogger().info("Successfully registered " + recipeManager.getRecipeCount() + " ore mastery recipes!");
             }
-        }.runTaskLater(this, 20L); // 1 second delay
+        }.runTaskLater(this, 20L);
 
-        // Register events
         getServer().getPluginManager().registerEvents(playerListener, this);
         getServer().getPluginManager().registerEvents(abilityListener, this);
         getServer().getPluginManager().registerEvents(activationManager, this);
-        // RecipeManager registers itself as a listener in its constructor
 
-        // Register commands with new simplified structure
         OreAbilitiesCommand mainCommand = new OreAbilitiesCommand(this);
         TrustCommand trustCommand = new TrustCommand(this);
 
@@ -72,27 +65,22 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         getCommand("ore").setExecutor(mainCommand);
         getCommand("ability").setExecutor(mainCommand);
         getCommand("bedrock").setExecutor(mainCommand);
-        getCommand("orecd").setExecutor(mainCommand); // NEW: Register orecd command
+        getCommand("orecd").setExecutor(mainCommand);
 
         getLogger().info("Ore Abilities Plugin has been enabled!");
-        getLogger().info("Features: Simplified commands (/ore), effect cleanup, enhanced ore info!");
-        getLogger().info("NEW: /orecd reset command for admins, improved abilities!");
-        getLogger().info("Crafting system initialized - recipes will be registered shortly...");
+        getLogger().info("Features: Dirt leather armor is truly unbreakable, LAPIS can enchant with 0 levels!");
     }
 
     @Override
     public void onDisable() {
-        // Stop all action bars when plugin disables
         if (actionBarManager != null) {
             actionBarManager.stopAllActionBars();
         }
 
-        // Save bedrock data
         if (activationManager != null) {
             activationManager.saveBedrockData();
         }
 
-        // Remove custom recipes
         if (recipeManager != null) {
             getLogger().info("Removed all custom recipes");
         }
@@ -128,16 +116,12 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         return oreConfigs;
     }
 
-    // Reload method for admin commands
     public void reloadPlugin() {
-        // Reload config
         reloadConfig();
         this.oreConfigs = new OreConfigs(this);
 
-        // Reload player data
         playerDataManager.loadPlayerData();
 
-        // Re-register recipes after a small delay
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -149,7 +133,6 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         getLogger().info("Ore Abilities Plugin reloaded successfully!");
     }
 
-    // Getters
     public static OreAbilitiesPlugin getInstance() {
         return instance;
     }
