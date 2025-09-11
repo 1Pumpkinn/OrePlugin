@@ -72,9 +72,11 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         getCommand("ore").setExecutor(mainCommand);
         getCommand("ability").setExecutor(mainCommand);
         getCommand("bedrock").setExecutor(mainCommand);
+        getCommand("orecd").setExecutor(mainCommand); // NEW: Register orecd command
 
         getLogger().info("Ore Abilities Plugin has been enabled!");
         getLogger().info("Features: Simplified commands (/ore), effect cleanup, enhanced ore info!");
+        getLogger().info("NEW: /orecd reset command for admins, improved abilities!");
         getLogger().info("Crafting system initialized - recipes will be registered shortly...");
     }
 

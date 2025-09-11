@@ -24,8 +24,10 @@ public class AbilityManager {
     private final OreAbilitiesPlugin plugin;
     private final Map<UUID, Boolean> activeEffects = new HashMap<>();
     private final Map<UUID, Boolean> copperLightningActive = new HashMap<>();
+    private final Map<UUID, Integer> noJumpEffects = new HashMap<>(); // NEW: Track no-jump effects
     private final Map<UUID, BukkitTask> ironDropTasks = new HashMap<>();
     private final Map<UUID, BukkitTask> amethystGlowTasks = new HashMap<>();
+    private final Map<UUID, BukkitTask> noJumpTasks = new HashMap<>(); // NEW: Track no-jump tasks
     private final Random random = new Random();
 
     public AbilityManager(OreAbilitiesPlugin plugin) {
@@ -245,9 +247,10 @@ public class AbilityManager {
         }.runTaskLater(plugin, 1200); // Effect lasts until used or 60 seconds pass
     }
 
+    // UPDATED: Lapis ability now allows enchanting without levels
     private void lapisAbility(Player player) {
         activeEffects.put(player.getUniqueId(), true);
-        player.sendMessage("§9Level Replenish activated! EXP splashing gives regen for 30 seconds!");
+        player.sendMessage("§9Level Replenish activated! Enchanting costs no levels and EXP gives regen for 30 seconds!");
         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
 
         new BukkitRunnable() {
@@ -330,6 +333,46 @@ public class AbilityManager {
         player.getInventory().setItemInMainHand(newItem);
         player.sendMessage("§4Debris, Debris, Debris! Item upgraded to netherite!");
         player.playSound(player.getLocation(), Sound.UI_STONECUTTER_TAKE_RESULT, 1.0f, 0.5f);
+    }
+
+    // NEW: Add no-jump effect for sticky slime
+    public void addNoJumpEffect(UUID playerUUID, int durationTicks) {
+        noJumpEffects.put(playerUUID, durationTicks);
+
+        // Start a task to count down the duration
+        BukkitTask task = new BukkitRunnable() {
+            int remaining = durationTicks;
+
+            @Override
+            public void run() {
+                remaining--;
+                if (remaining <= 0) {
+                    noJumpEffects.remove(playerUUID);
+                    cancel();
+                    noJumpTasks.remove(playerUUID);
+                } else {
+                    noJumpEffects.put(playerUUID, remaining);
+                }
+            }
+        }.runTaskTimer(plugin, 1, 1);
+
+        noJumpTasks.put(playerUUID, task);
+    }
+
+    // NEW: Check if player has no-jump effect
+    public boolean hasNoJumpEffect(UUID playerUUID) {
+        return noJumpEffects.containsKey(playerUUID);
+    }
+
+    // NEW: Reset cooldown method for admin command
+    public boolean resetCooldown(Player player) {
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        if (dataManager.isOnCooldown(player)) {
+            dataManager.clearCooldown(player);
+            plugin.getActionBarManager().updateCooldownDisplay(player);
+            return true;
+        }
+        return false;
     }
 
     public void startIronDropTimer(Player player) {
@@ -533,6 +576,7 @@ public class AbilityManager {
         UUID uuid = player.getUniqueId();
         activeEffects.remove(uuid);
         copperLightningActive.remove(uuid);
+        noJumpEffects.remove(uuid); // NEW: Clean up no-jump effects
 
         if (ironDropTasks.containsKey(uuid)) {
             ironDropTasks.get(uuid).cancel();
@@ -542,6 +586,12 @@ public class AbilityManager {
         if (amethystGlowTasks.containsKey(uuid)) {
             amethystGlowTasks.get(uuid).cancel();
             amethystGlowTasks.remove(uuid);
+        }
+
+        // NEW: Clean up no-jump tasks
+        if (noJumpTasks.containsKey(uuid)) {
+            noJumpTasks.get(uuid).cancel();
+            noJumpTasks.remove(uuid);
         }
     }
 

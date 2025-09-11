@@ -11,6 +11,7 @@ import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.enchantment.EnchantItemEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.Material;
 import org.bukkit.potion.PotionEffect;
@@ -34,8 +35,10 @@ public class AbilityListener implements Listener {
     private final OreAbilitiesPlugin plugin;
     private final Random random = new Random();
     private final Map<UUID, Long> lastWaterDamageTime = new HashMap<>();
+    private final Map<UUID, Long> lastRainDamageTime = new HashMap<>(); // NEW: Rain damage tracking
     private final Map<UUID, BukkitRunnable> copperArmorTasks = new HashMap<>();
     private final Map<UUID, BukkitRunnable> diamondArmorTasks = new HashMap<>();
+    private final Map<UUID, BukkitRunnable> coalRainTasks = new HashMap<>(); // NEW: Coal rain damage tasks
 
     public AbilityListener(OreAbilitiesPlugin plugin) {
         this.plugin = plugin;
@@ -95,7 +98,7 @@ public class AbilityListener implements Listener {
                 if (abilityManager.hasActiveEffect(attacker)) {
                     ItemStack weapon = attacker.getInventory().getItemInMainHand();
                     if (weapon != null && weapon.getType() == Material.DIAMOND_SWORD) {
-                        event.setDamage(event.getDamage() * 2.0); // 2x damage for diamond
+                        event.setDamage(event.getDamage() * 1.4); // CHANGED: 1.4x damage instead of 2x
                         attacker.playSound(attacker.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 2.0f);
                     }
                 }
@@ -104,9 +107,9 @@ public class AbilityListener implements Listener {
             case REDSTONE:
                 if (abilityManager.hasActiveEffect(attacker) && event.getEntity() instanceof Player) {
                     Player target = (Player) event.getEntity();
-                    // FIXED: Use negative jump boost to prevent jumping entirely
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 200, -10, false, false));
-                    target.sendMessage("§4You cannot jump for 10 seconds!");
+                    // CHANGED: Disable jumping completely for 10 seconds
+                    plugin.getAbilityManager().addNoJumpEffect(target.getUniqueId(), 200); // 10 seconds
+                    target.sendMessage("§4Sticky Slime! You cannot jump for 10 seconds!");
                     attacker.sendMessage("§cSticky Slime effect applied to " + target.getName() + "!");
                     plugin.getAbilityManager().removeActiveEffect(attacker);
                 }
@@ -115,7 +118,7 @@ public class AbilityListener implements Listener {
             case AMETHYST:
                 ItemStack offhand = attacker.getInventory().getItemInOffHand();
                 if (offhand != null && offhand.getType() == Material.AMETHYST_SHARD) {
-                    event.setDamage(event.getDamage() + 1.5); // +1.5 damage
+                    event.setDamage(event.getDamage() * 1.1); // CHANGED: 1.1x damage instead of +1.5
                 }
                 break;
 
@@ -156,7 +159,7 @@ public class AbilityListener implements Listener {
                 }
                 if (isDripstoneOrStalactiteDamage(event)) {
                     event.setCancelled(true);
-                    player.sendMessage("§4Redstone protection from dripstone/stalactite!");
+                    player.sendMessage("§4Dripstone/Stalactite do not effect You!");
                 }
                 break;
 
@@ -170,7 +173,6 @@ public class AbilityListener implements Listener {
             case COPPER:
                 if (event.getCause() == EntityDamageEvent.DamageCause.LIGHTNING) {
                     event.setCancelled(true);
-                    player.sendMessage("§3Copper protection from lightning!");
                 }
                 break;
 
@@ -192,6 +194,23 @@ public class AbilityListener implements Listener {
 
         if (oreType == OreType.COAL) {
             handleCoalWaterDamage(player);
+            handleCoalRainDamage(player); // NEW: Rain damage for coal players
+        }
+
+        // NEW: Prevent jumping for redstone sticky slime effect
+        if (oreType != null && plugin.getAbilityManager().hasNoJumpEffect(player.getUniqueId())) {
+            // Cancel any upward movement that looks like jumping
+            if (event.getTo() != null && event.getFrom() != null) {
+                double yDiff = event.getTo().getY() - event.getFrom().getY();
+                if (yDiff > 0.1 && !player.isFlying() && player.getVelocity().getY() > 0.1) {
+                    // Player is trying to jump, cancel it
+                    Location newLoc = event.getFrom().clone();
+                    newLoc.setYaw(event.getTo().getYaw());
+                    newLoc.setPitch(event.getTo().getPitch());
+                    event.setTo(newLoc);
+                    player.setVelocity(player.getVelocity().setY(0));
+                }
+            }
         }
     }
 
@@ -229,6 +248,33 @@ public class AbilityListener implements Listener {
         }
     }
 
+    // NEW: Lapis enchanting without levels
+    @EventHandler
+    public void onEnchantItem(EnchantItemEvent event) {
+        if (!(event.getEnchanter() instanceof Player)) return;
+
+        Player player = (Player) event.getEnchanter();
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        OreType oreType = dataManager.getPlayerOre(player);
+        AbilityManager abilityManager = plugin.getAbilityManager();
+
+        if (oreType == OreType.LAPIS && abilityManager.hasActiveEffect(player)) {
+            // Store original levels
+            int originalLevel = player.getLevel();
+            float originalExp = player.getExp();
+
+            // Let the enchantment happen, then restore levels
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    player.setLevel(originalLevel);
+                    player.setExp(originalExp);
+                    player.sendMessage("§9No levels consumed!");
+                }
+            }.runTaskLater(plugin, 1);
+        }
+    }
+
     private void enchantTridentWithChanneling(Player player, ItemStack item) {
         if (item != null && item.getType() == Material.TRIDENT) {
             ItemMeta meta = item.getItemMeta();
@@ -254,13 +300,44 @@ public class AbilityListener implements Listener {
 
                 double damage = configs != null ? configs.getCoalWaterDamage() : 2.0;
                 player.damage(damage);
-                player.sendMessage("§8Coal curse! Water burns you!");
                 player.playSound(player.getLocation(), Sound.BLOCK_LAVA_EXTINGUISH, 1.0f, 1.5f);
                 lastWaterDamageTime.put(uuid, currentTime);
             }
         } else {
             lastWaterDamageTime.remove(player.getUniqueId());
         }
+    }
+
+    // NEW: Handle rain damage for coal players
+    private void handleCoalRainDamage(Player player) {
+        if (player.getWorld().hasStorm() && !isUnderShelter(player)) {
+            UUID uuid = player.getUniqueId();
+            long currentTime = System.currentTimeMillis();
+
+            if (!lastRainDamageTime.containsKey(uuid) ||
+                    currentTime - lastRainDamageTime.get(uuid) > 2000) { // Every 2 seconds
+
+                double damage = 1.0; // 1 damage every 2 seconds in rain
+                player.damage(damage);
+                player.playSound(player.getLocation(), Sound.BLOCK_LAVA_EXTINGUISH, 0.5f, 2.0f);
+                lastRainDamageTime.put(uuid, currentTime);
+            }
+        } else {
+            lastRainDamageTime.remove(player.getUniqueId());
+        }
+    }
+
+    // NEW: Check if player is under shelter (blocks above them)
+    private boolean isUnderShelter(Player player) {
+        Location loc = player.getLocation();
+        // Check if there are blocks above the player within 10 blocks
+        for (int y = 1; y <= 10; y++) {
+            Block block = loc.clone().add(0, y, 0).getBlock();
+            if (block.getType().isSolid()) {
+                return true; // Player is under shelter
+            }
+        }
+        return false; // Player is exposed to rain
     }
 
     private boolean isDripstoneOrStalactiteDamage(EntityDamageEvent event) {
@@ -392,7 +469,6 @@ public class AbilityListener implements Listener {
                 if (dirtArmor != null) {
                     dirtArmor.setBaseValue(0); // Reset to default
                 }
-                player.sendMessage("§7Dirt ore effects removed.");
                 break;
             case IRON:
                 AttributeInstance armorAttribute = player.getAttribute(Attribute.ARMOR);
@@ -401,55 +477,45 @@ public class AbilityListener implements Listener {
                     armorAttribute.setBaseValue(Math.max(0, currentBase - 2));
                 }
                 plugin.getAbilityManager().cancelIronDropTimer(player);
-                player.sendMessage("§7Iron ore effects removed.");
                 break;
             case AMETHYST:
                 plugin.getAbilityManager().cancelAmethystGlowing(player);
-                player.sendMessage("§7Amethyst ore effects removed.");
                 break;
             case EMERALD:
                 player.removePotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE);
                 player.removePotionEffect(PotionEffectType.WEAKNESS);
-                player.sendMessage("§7Emerald ore effects removed.");
                 break;
             case COPPER:
                 stopCopperArmorDurabilityTimer(player);
-                player.sendMessage("§7Copper ore effects removed.");
                 break;
             case DIAMOND:
                 stopDiamondArmorProtectionTimer(player);
-                player.sendMessage("§7Diamond ore effects removed.");
                 break;
             case STONE:
                 // FIXED: Properly remove stone effects
                 player.removePotionEffect(PotionEffectType.REGENERATION);
                 player.removePotionEffect(PotionEffectType.SLOWNESS);
-                player.sendMessage("§7Stone ore effects removed.");
                 break;
             case COAL:
                 // Remove coal water damage tracking
                 lastWaterDamageTime.remove(player.getUniqueId());
-                player.sendMessage("§7Coal ore effects removed.");
+                lastRainDamageTime.remove(player.getUniqueId()); // NEW: Remove rain damage tracking
+                stopCoalRainTimer(player); // NEW: Stop rain timer
                 break;
             case NETHERITE:
                 // No persistent effects to remove for netherite
-                player.sendMessage("§7Netherite ore effects removed.");
                 break;
             case REDSTONE:
                 // No persistent effects to remove for redstone
-                player.sendMessage("§7Redstone ore effects removed.");
                 break;
             case LAPIS:
                 // No persistent effects to remove for lapis
-                player.sendMessage("§7Lapis ore effects removed.");
                 break;
             case GOLD:
                 // No persistent effects to remove for gold
-                player.sendMessage("§7Gold ore effects removed.");
                 break;
             case WOOD:
                 // No persistent effects to remove for wood
-                player.sendMessage("§7Wood ore effects removed.");
                 break;
         }
     }
@@ -471,7 +537,6 @@ public class AbilityListener implements Listener {
             if (hasFullLeatherArmor) {
                 // Give diamond-level armor (20 armor points)
                 armorAttribute.setBaseValue(20);
-                player.sendMessage("§6Dirt blessing! Full leather armor is now unbreakable and diamond-strong!");
             } else {
                 // Reset to normal armor calculation
                 armorAttribute.setBaseValue(0);
@@ -492,10 +557,40 @@ public class AbilityListener implements Listener {
 
         if (!hasFullLeatherArmor && !player.hasPotionEffect(PotionEffectType.MINING_FATIGUE)) {
             player.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, Integer.MAX_VALUE, 0, false, false));
-            player.sendMessage("§cDirt curse! You need full leather armor or you'll mine slowly!");
+            player.sendMessage("§cDirt Downside! You need full leather armor!");
         } else if (hasFullLeatherArmor && player.hasPotionEffect(PotionEffectType.MINING_FATIGUE)) {
             player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
-            player.sendMessage("§aDirt blessing! Mining fatigue removed!");
+            player.sendMessage("§aDirt Upside! Mining fatigue removed!");
+        }
+    }
+
+    // NEW: Start coal rain timer
+    public void startCoalRainTimer(Player player) {
+        stopCoalRainTimer(player);
+
+        BukkitRunnable task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                PlayerDataManager dataManager = plugin.getPlayerDataManager();
+                if (dataManager.getPlayerOre(player) != OreType.COAL || !player.isOnline()) {
+                    cancel();
+                    coalRainTasks.remove(player.getUniqueId());
+                    return;
+                }
+
+                handleCoalRainDamage(player);
+            }
+        };
+
+        task.runTaskTimer(plugin, 40, 40); // Every 2 seconds
+        coalRainTasks.put(player.getUniqueId(), task);
+    }
+
+    // NEW: Stop coal rain timer
+    public void stopCoalRainTimer(Player player) {
+        BukkitRunnable task = coalRainTasks.remove(player.getUniqueId());
+        if (task != null) {
+            task.cancel();
         }
     }
 
@@ -665,7 +760,7 @@ public class AbilityListener implements Listener {
                 public void run() {
                     player.setLevel(originalLevel);
                     player.setExp(originalExp);
-                    player.sendMessage("§9Lapis blessing! No XP consumed for anvil use!");
+                    player.sendMessage("§9Lapis Upside! No XP consumed for anvil use!");
                 }
             }.runTaskLater(plugin, 1);
         }
@@ -773,7 +868,9 @@ public class AbilityListener implements Listener {
     // Cleanup method for player logout
     public void cleanup(Player player) {
         lastWaterDamageTime.remove(player.getUniqueId());
+        lastRainDamageTime.remove(player.getUniqueId()); // NEW: Clean up rain damage tracking
         stopCopperArmorDurabilityTimer(player);
         stopDiamondArmorProtectionTimer(player);
+        stopCoalRainTimer(player); // NEW: Clean up rain timer
     }
 }

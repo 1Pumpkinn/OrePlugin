@@ -11,7 +11,6 @@ public class PlayerDataManager {
     private final OreAbilitiesPlugin plugin;
     private final Map<UUID, OreType> playerOres = new HashMap<>();
     private final Map<UUID, Long> cooldowns = new HashMap<>();
-    private final Map<UUID, Long> ironDropTimer = new HashMap<>();
 
     public PlayerDataManager(OreAbilitiesPlugin plugin) {
         this.plugin = plugin;
@@ -20,58 +19,68 @@ public class PlayerDataManager {
 
     public void loadPlayerData() {
         FileConfiguration config = plugin.getPlayerDataConfig();
+
         if (config.getConfigurationSection("players") != null) {
             for (String uuidString : config.getConfigurationSection("players").getKeys(false)) {
-                UUID uuid = UUID.fromString(uuidString);
-                String oreTypeName = config.getString("players." + uuidString + ".ore");
-                if (oreTypeName != null) {
-                    try {
-                        OreType oreType = OreType.valueOf(oreTypeName.toUpperCase());
-                        playerOres.put(uuid, oreType);
-                    } catch (IllegalArgumentException e) {
-                        plugin.getLogger().warning("Invalid ore type for player " + uuid + ": " + oreTypeName);
-                    }
-                }
+                try {
+                    UUID uuid = UUID.fromString(uuidString);
+                    String oreTypeName = config.getString("players." + uuidString + ".ore");
 
-                long ironTimer = config.getLong("players." + uuidString + ".ironTimer", 0);
-                if (ironTimer > 0) {
-                    ironDropTimer.put(uuid, ironTimer);
+                    if (oreTypeName != null) {
+                        try {
+                            OreType oreType = OreType.valueOf(oreTypeName.toUpperCase());
+                            playerOres.put(uuid, oreType);
+                        } catch (IllegalArgumentException e) {
+                            plugin.getLogger().warning("Invalid ore type for player " + uuidString + ": " + oreTypeName);
+                        }
+                    }
+                } catch (IllegalArgumentException e) {
+                    plugin.getLogger().warning("Invalid UUID in player data: " + uuidString);
                 }
             }
         }
+
+        plugin.getLogger().info("Loaded ore data for " + playerOres.size() + " players");
     }
 
     public void savePlayerData() {
         FileConfiguration config = plugin.getPlayerDataConfig();
+
+        // Clear existing data
+        config.set("players", null);
+
+        // Save all player ore data
         for (Map.Entry<UUID, OreType> entry : playerOres.entrySet()) {
             String uuidString = entry.getKey().toString();
             config.set("players." + uuidString + ".ore", entry.getValue().name());
-
-            if (ironDropTimer.containsKey(entry.getKey())) {
-                config.set("players." + uuidString + ".ironTimer", ironDropTimer.get(entry.getKey()));
-            }
         }
+
         plugin.savePlayerData();
     }
 
     public OreType getPlayerOre(Player player) {
-        return playerOres.get(player.getUniqueId());
+        UUID uuid = player.getUniqueId();
+        OreType oreType = playerOres.get(uuid);
+
+        // If player doesn't have an ore type, assign a random starter ore
+        if (oreType == null) {
+            oreType = OreType.getRandomStarter();
+            setPlayerOre(player, oreType);
+            player.sendMessage("§6Welcome! You've been assigned the " + oreType.getDisplayName() + " ore type!");
+            player.sendMessage("§7Use §e/ore help §7to learn more about abilities!");
+        }
+
+        return oreType;
     }
 
     public void setPlayerOre(Player player, OreType oreType) {
-        playerOres.put(player.getUniqueId(), oreType);
+        UUID uuid = player.getUniqueId();
+        playerOres.put(uuid, oreType);
+
+        // Auto-save after changes
         savePlayerData();
-    }
 
-    public boolean hasPlayerOre(Player player) {
-        return playerOres.containsKey(player.getUniqueId());
-    }
-
-    public void assignRandomStarterOre(Player player) {
-        if (!hasPlayerOre(player)) {
-            OreType starterOre = OreType.getRandomStarter();
-            setPlayerOre(player, starterOre);
-        }
+        plugin.getLogger().info("Set " + player.getName() + " ore type to " + oreType.getDisplayName());
     }
 
     public boolean isOnCooldown(Player player) {
@@ -80,14 +89,15 @@ public class PlayerDataManager {
             return false;
         }
 
-        long currentTime = System.currentTimeMillis();
         long cooldownEnd = cooldowns.get(uuid);
-        return currentTime < cooldownEnd;
-    }
-
-    public void setCooldown(Player player, int seconds) {
         long currentTime = System.currentTimeMillis();
-        cooldowns.put(player.getUniqueId(), currentTime + (seconds * 1000L));
+
+        if (currentTime >= cooldownEnd) {
+            cooldowns.remove(uuid);
+            return false;
+        }
+
+        return true;
     }
 
     public long getRemainingCooldown(Player player) {
@@ -96,26 +106,67 @@ public class PlayerDataManager {
             return 0;
         }
 
-        long currentTime = System.currentTimeMillis();
         long cooldownEnd = cooldowns.get(uuid);
-        return Math.max(0, (cooldownEnd - currentTime) / 1000);
-    }
-
-    public void setIronDropTimer(Player player) {
-        ironDropTimer.put(player.getUniqueId(), System.currentTimeMillis() + 600000); // 10 minutes
-    }
-
-    public boolean shouldDropIronItem(Player player) {
-        UUID uuid = player.getUniqueId();
-        if (!ironDropTimer.containsKey(uuid)) {
-            return false;
-        }
-
         long currentTime = System.currentTimeMillis();
-        if (currentTime >= ironDropTimer.get(uuid)) {
-            setIronDropTimer(player); // Reset timer
-            return true;
+
+        if (currentTime >= cooldownEnd) {
+            cooldowns.remove(uuid);
+            return 0;
         }
-        return false;
+
+        return (cooldownEnd - currentTime) / 1000; // Convert to seconds
+    }
+
+    public void setCooldown(Player player, int seconds) {
+        UUID uuid = player.getUniqueId();
+        long cooldownEnd = System.currentTimeMillis() + (seconds * 1000L);
+        cooldowns.put(uuid, cooldownEnd);
+
+        plugin.getLogger().info("Set cooldown for " + player.getName() + ": " + seconds + " seconds");
+    }
+
+    // NEW: Clear cooldown method for admin command
+    public void clearCooldown(Player player) {
+        UUID uuid = player.getUniqueId();
+        cooldowns.remove(uuid);
+        plugin.getLogger().info("Cleared cooldown for " + player.getName());
+    }
+
+    public void cleanup(Player player) {
+        // Optional: Clean up cooldowns when player leaves
+        // We'll keep them for now since they should persist across sessions
+        UUID uuid = player.getUniqueId();
+        plugin.getLogger().info("Player " + player.getName() + " left - keeping cooldown data");
+    }
+
+    // Get all players with ore types (for debugging/admin purposes)
+    public Map<UUID, OreType> getAllPlayerOres() {
+        return new HashMap<>(playerOres);
+    }
+
+    // Remove a player's ore data completely (admin command)
+    public void removePlayerData(UUID uuid) {
+        playerOres.remove(uuid);
+        cooldowns.remove(uuid);
+        savePlayerData();
+    }
+
+    // ADDED: Check if player has an ore type assigned (without auto-assigning)
+    public boolean hasPlayerOre(Player player) {
+        return playerOres.containsKey(player.getUniqueId());
+    }
+
+    // ADDED: Manually assign a random starter ore to a player
+    public void assignRandomStarterOre(Player player) {
+        OreType randomOre = OreType.getRandomStarter();
+        setPlayerOre(player, randomOre);
+        player.sendMessage("§6Welcome! You've been assigned the " + randomOre.getDisplayName() + " ore type!");
+        player.sendMessage("§7Use §e/ore help §7to learn more about abilities!");
+        plugin.getLogger().info("Assigned random starter ore " + randomOre.getDisplayName() + " to " + player.getName());
+    }
+
+    // ADDED: Get player ore without auto-assignment (returns null if none)
+    public OreType getPlayerOreRaw(Player player) {
+        return playerOres.get(player.getUniqueId());
     }
 }

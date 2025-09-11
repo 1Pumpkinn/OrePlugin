@@ -41,6 +41,12 @@ public class OreAbilitiesCommand implements CommandExecutor {
             return true;
         }
 
+        // NEW: Handle orecd command
+        if (label.equalsIgnoreCase("orecd")) {
+            handleOreCooldownCommand(player, args);
+            return true;
+        }
+
         // Main command handling
         if (args.length == 0) {
             showPlayerInfo(player, dataManager);
@@ -103,6 +109,48 @@ public class OreAbilitiesCommand implements CommandExecutor {
         }
 
         return true;
+    }
+
+    // NEW: Handle ore cooldown command
+    private void handleOreCooldownCommand(Player player, String[] args) {
+        if (!player.hasPermission("oreabilities.admin")) {
+            player.sendMessage("§cYou don't have permission to use this command!");
+            return;
+        }
+
+        if (args.length == 0 || !args[0].equalsIgnoreCase("reset")) {
+            player.sendMessage("§cUsage: §e/orecd reset [player]");
+            player.sendMessage("§7Resets the ore ability cooldown for a player");
+            return;
+        }
+
+        Player target;
+        if (args.length >= 2) {
+            target = plugin.getServer().getPlayer(args[1]);
+            if (target == null) {
+                player.sendMessage("§cPlayer '" + args[1] + "' not found or not online!");
+                return;
+            }
+        } else {
+            target = player;
+        }
+
+        boolean hadCooldown = plugin.getAbilityManager().resetCooldown(target);
+
+        if (hadCooldown) {
+            if (target.equals(player)) {
+                player.sendMessage("§aYour ore ability cooldown has been reset!");
+            } else {
+                player.sendMessage("§aReset ore ability cooldown for " + target.getName() + "!");
+                target.sendMessage("§eYour ore ability cooldown has been reset by an admin!");
+            }
+        } else {
+            if (target.equals(player)) {
+                player.sendMessage("§cYou don't have an active cooldown!");
+            } else {
+                player.sendMessage("§c" + target.getName() + " doesn't have an active cooldown!");
+            }
+        }
     }
 
     private void showPlayerInfo(Player player, PlayerDataManager dataManager) {
@@ -225,7 +273,7 @@ public class OreAbilitiesCommand implements CommandExecutor {
                         "Sizzle",
                         "Smelt the ore in your hand (works with stacks)",
                         "Do +1 damage when on fire",
-                        "Going in water does damage"
+                        "Going in water does damage, rain burns you - find shelter!"
                 };
             case COPPER:
                 return new String[]{
@@ -258,7 +306,7 @@ public class OreAbilitiesCommand implements CommandExecutor {
             case LAPIS:
                 return new String[]{
                         "Level Replenish",
-                        "Splashing exp gives regeneration 1 for 5 seconds (lasts 30 seconds)",
+                        "Enchanting costs no levels and EXP gives regen (lasts 30 seconds)",
                         "Using anvils doesn't use levels",
                         "You cannot trade with villagers"
                 };
@@ -273,13 +321,13 @@ public class OreAbilitiesCommand implements CommandExecutor {
                 return new String[]{
                         "Crystal Cluster",
                         "For 10 seconds go into crystal mode: no knockback and no damage",
-                        "Amethyst shards in offhand give +1.5 attack damage",
+                        "Amethyst shards in offhand give +1.1x attack damage",
                         "Permanent glowing (purple glow)"
                 };
             case DIAMOND:
                 return new String[]{
                         "Gleaming Power",
-                        "When using a diamond sword, do 2x damage for 5 seconds",
+                        "When using a diamond sword, do 1.4x damage for 5 seconds",
                         "Armor takes 2x longer to break",
                         "Every ore you break has 50% chance of not dropping"
                 };
@@ -444,6 +492,7 @@ public class OreAbilitiesCommand implements CommandExecutor {
             player.sendMessage("  §e/ore change <ore> [player] §7- Set ore type");
             player.sendMessage("  §e/ore reset <player> §7- Reset player's ore");
             player.sendMessage("  §e/ore reload §7- Reload plugin");
+            player.sendMessage("  §e/orecd reset [player] §7- Reset ore cooldown");
             player.sendMessage("");
         }
 
