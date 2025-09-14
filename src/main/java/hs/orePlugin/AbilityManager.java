@@ -1,23 +1,24 @@
 package hs.orePlugin;
 
+import org.bukkit.ChatColor;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Sound;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.Material;
-import org.bukkit.Location;
-import org.bukkit.Sound;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.enchantments.Enchantment;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
-import org.bukkit.ChatColor;
+
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 import java.util.Random;
+import java.util.UUID;
 
 public class AbilityManager {
 
@@ -135,8 +136,9 @@ public class AbilityManager {
         loc.add(0, 1, 0);
 
         if (below == Material.GRASS_BLOCK || below == Material.DIRT) {
-            player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 300, 3));
-            player.sendMessage("§aEarth's Blessing activated! +4 absorption hearts for 15 seconds!");
+            // UPDATED: Changed from level 3 (4 hearts) to level 7 (8 hearts) - Absorption gives 2 hearts per level
+            player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 300, 7));
+            player.sendMessage("§aEarth's Blessing activated! +8 absorption hearts for 15 seconds!");
             player.playSound(player.getLocation(), Sound.BLOCK_GRASS_BREAK, 1.0f, 1.0f);
         } else {
             player.sendMessage("§cYou must be standing on grass or dirt!");

@@ -92,7 +92,8 @@ public class ActionBarManager {
             if (activationManager.isBedrockMode(player)) {
                 message.append(" §8| §a✓ Ready! §7(/ability)");
             } else {
-                message.append(" §8| §a✓ Ready! §7(Shift+Right-Click)");
+                // UPDATED: Changed from Shift+Right-Click to Shift+Left-Click
+                message.append(" §8| §a✓ Ready! §7(Shift+Left-Click)");
             }
         }
 
