@@ -312,24 +312,25 @@ public class AbilityManager {
         }
     }
 
+
     private void netheriteAbility(Player player) {
         ItemStack handItem = player.getInventory().getItemInMainHand();
         if (handItem == null || handItem.getType() == Material.AIR) {
-            player.sendMessage("§cYou must hold an item to upgrade!");
+            player.sendMessage("§cYou must hold an item to use this ability!");
             return;
         }
 
-        Material upgraded = getNetheriteUpgrade(handItem.getType());
-        if (upgraded == null) {
-            player.sendMessage("§cThis item cannot be upgraded to netherite!");
-            return;
-        }
+        // Check if holding Ancient Debris - convert to Netherite Ingots
+        if (handItem.getType() == Material.ANCIENT_DEBRIS) {
+            int amount = handItem.getAmount();
+            ItemStack netheriteIngots = new ItemStack(Material.NETHERITE_INGOT, amount);
 
-        ItemStack newItem = handItem.clone();
-        newItem.setType(upgraded);
-        player.getInventory().setItemInMainHand(newItem);
-        player.sendMessage("§4Debris, Debris, Debris! Item upgraded to netherite!");
-        player.playSound(player.getLocation(), Sound.UI_STONECUTTER_TAKE_RESULT, 1.0f, 0.5f);
+            player.getInventory().setItemInMainHand(netheriteIngots);
+            player.sendMessage("§4Converted " + amount + " Ancient Debris to Netherite Ingots!");
+            player.playSound(player.getLocation(), Sound.UI_STONECUTTER_TAKE_RESULT, 1.0f, 0.5f);
+        } else {
+            player.sendMessage("§cYou must be holding Ancient Debris to use this ability!");
+        }
     }
 
     public void addNoJumpEffect(UUID playerUUID, int durationTicks) {
