@@ -147,6 +147,20 @@ public class AbilityManager {
 
     private void woodAbility(Player player) {
         activeEffects.put(player.getUniqueId(), true);
+
+        // Check for axe in hand and enchant with Efficiency (max level 3)
+        ItemStack handItem = player.getInventory().getItemInMainHand();
+        if (handItem != null && handItem.getType().name().contains("AXE")) {
+            ItemMeta meta = handItem.getItemMeta();
+            if (meta != null) {
+                int currentEfficiency = meta.getEnchantLevel(Enchantment.EFFICIENCY);
+                if (currentEfficiency < 3) {
+                    meta.addEnchant(Enchantment.EFFICIENCY, Math.min(3, currentEfficiency + 1), true);
+                    handItem.setItemMeta(meta);
+                }
+            }
+        }
+
         player.sendMessage("§6Lumberjack's Fury activated! Axes deal 1.5x damage for 5 seconds!");
         player.playSound(player.getLocation(), Sound.BLOCK_WOOD_BREAK, 1.0f, 1.0f);
 

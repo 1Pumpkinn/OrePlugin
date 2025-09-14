@@ -243,8 +243,21 @@ public class AbilityListener implements Listener {
                 }
             }.runTaskLater(plugin, 2);
         }
+
+        // NEW: Prevent wood players from picking up efficiency > 3 axes
+        if (oreType == OreType.WOOD) {
+            ItemStack item = event.getItem().getItemStack();
+            if (item.getType().name().contains("AXE")) {
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null && meta.getEnchantLevel(Enchantment.EFFICIENCY) > 3) {
+                    event.setCancelled(true);
+                    player.sendMessage("§cWood ore limitation! Cannot pick up axes with Efficiency above 3!");
+                }
+            }
+        }
     }
 
+    // NEW: Prevent wood players from enchanting axes above efficiency 3
     @EventHandler
     public void onEnchantItem(EnchantItemEvent event) {
         if (!(event.getEnchanter() instanceof Player)) return;
@@ -253,6 +266,19 @@ public class AbilityListener implements Listener {
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
         OreType oreType = dataManager.getPlayerOre(player);
         AbilityManager abilityManager = plugin.getAbilityManager();
+
+        if (oreType == OreType.WOOD && event.getItem().getType().name().contains("AXE")) {
+            if (event.getEnchantsToAdd().containsKey(Enchantment.EFFICIENCY)) {
+                int currentLevel = event.getItem().getEnchantmentLevel(Enchantment.EFFICIENCY);
+                int newLevel = event.getEnchantsToAdd().get(Enchantment.EFFICIENCY);
+
+                if (currentLevel + newLevel > 3) {
+                    event.setCancelled(true);
+                    player.sendMessage("§cWood ore limitation! Cannot enchant axes with Efficiency above 3!");
+                    return;
+                }
+            }
+        }
 
         if (oreType == OreType.LAPIS && abilityManager.hasActiveEffect(player)) {
             int originalLevel = player.getLevel();
@@ -269,11 +295,20 @@ public class AbilityListener implements Listener {
         }
     }
 
+    // NEW: Prevent wood players from using anvils to get efficiency > 3 on axes
     @EventHandler
     public void onPrepareAnvil(PrepareAnvilEvent event) {
         if (!(event.getView().getPlayer() instanceof Player player)) return;
 
         OreType oreType = plugin.getPlayerDataManager().getPlayerOre(player);
+
+        if (oreType == OreType.WOOD && event.getResult() != null && event.getResult().getType().name().contains("AXE")) {
+            ItemMeta meta = event.getResult().getItemMeta();
+            if (meta != null && meta.getEnchantLevel(Enchantment.EFFICIENCY) > 3) {
+                event.setResult(null);
+                player.sendMessage("§cWood ore limitation! Cannot create axes with Efficiency above 3!");
+            }
+        }
 
         if (oreType == OreType.LAPIS) {
             if (event.getResult() != null && !event.getResult().getType().isAir()) {
@@ -297,6 +332,50 @@ public class AbilityListener implements Listener {
                 player.setLevel(player.getLevel());
             }
         }
+    }
+
+    // NEW: Handle armor durability modifications when player takes damage
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerItemDamage(PlayerItemDamageEvent event) {
+        Player player = event.getPlayer();
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        OreType oreType = dataManager.getPlayerOre(player);
+
+        if (oreType == null) return;
+
+        ItemStack item = event.getItem();
+
+        // Check if it's armor being damaged
+        if (isArmor(item.getType())) {
+            switch (oreType) {
+                case COPPER:
+                    // Copper: Armor breaks 1.5x faster (increase damage by 50%)
+                    if (random.nextDouble() < 0.5) { // 50% chance to take additional damage
+                        event.setDamage(event.getDamage() + 1);
+                    }
+                    break;
+                case DIAMOND:
+                    // Diamond: Armor takes 1.5x longer to break (reduce damage by 33%)
+                    if (random.nextDouble() < 0.33) { // 33% chance to prevent damage
+                        event.setCancelled(true);
+                    }
+                    break;
+            }
+        }
+
+        // Keep existing dirt leather armor protection
+        if (oreType == OreType.DIRT) {
+            if (item != null && item.getType().name().contains("LEATHER")) {
+                event.setCancelled(true);
+            }
+        }
+    }
+
+    // Helper method to check if an item is armor
+    private boolean isArmor(Material material) {
+        String name = material.name();
+        return name.contains("_HELMET") || name.contains("_CHESTPLATE") ||
+                name.contains("_LEGGINGS") || name.contains("_BOOTS");
     }
 
     private void enchantTridentWithChanneling(Player player, ItemStack item) {
@@ -510,11 +589,13 @@ public class AbilityListener implements Listener {
                 lastRainDamageTime.remove(player.getUniqueId());
                 stopCoalRainTimer(player);
                 break;
+            case WOOD:
+                // No cleanup needed for wood ore
+                break;
             case NETHERITE:
             case REDSTONE:
             case LAPIS:
             case GOLD:
-            case WOOD:
                 break;
         }
     }
@@ -730,20 +811,6 @@ public class AbilityListener implements Listener {
         if (oreType == OreType.LAPIS && event.getRightClicked() instanceof Villager) {
             event.setCancelled(true);
             player.sendMessage("§cLapis prevents you from trading with villagers!");
-        }
-    }
-
-    @EventHandler
-    public void onPlayerItemDamage(PlayerItemDamageEvent event) {
-        Player player = event.getPlayer();
-        PlayerDataManager dataManager = plugin.getPlayerDataManager();
-        OreType oreType = dataManager.getPlayerOre(player);
-
-        if (oreType == OreType.DIRT) {
-            ItemStack item = event.getItem();
-            if (item != null && item.getType().name().contains("LEATHER")) {
-                event.setCancelled(true);
-            }
         }
     }
 
