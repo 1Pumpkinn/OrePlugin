@@ -6,10 +6,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.inventory.CraftItemEvent;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryType;
-import org.bukkit.event.inventory.PrepareAnvilEvent;
+import org.bukkit.event.inventory.*;
 import org.bukkit.event.player.*;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.enchantment.EnchantItemEvent;
@@ -811,6 +808,113 @@ public class AbilityListener implements Listener {
         if (oreType == OreType.LAPIS && event.getRightClicked() instanceof Villager) {
             event.setCancelled(true);
             player.sendMessage("§cLapis prevents you from trading with villagers!");
+        }
+    }
+
+    // Add this method to AbilityListener.java after the existing onAnvilClick method
+
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) return;
+
+        Player player = (Player) event.getWhoClicked();
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        OreType oreType = dataManager.getPlayerOre(player);
+
+        // Check for wood ore axe efficiency restriction
+        if (oreType == OreType.WOOD) {
+            ItemStack clickedItem = event.getCurrentItem();
+            ItemStack cursorItem = event.getCursor();
+
+            // Check item being moved into inventory
+            if (clickedItem != null && isHighEfficiencyAxe(clickedItem) && isMovingToPlayerInventory(event)) {
+                event.setCancelled(true);
+                player.sendMessage("§cWood ore limitation! Cannot move axes with Efficiency above 3 to your inventory!");
+                return;
+            }
+
+            // Check item on cursor being placed
+            if (cursorItem != null && isHighEfficiencyAxe(cursorItem) && isMovingToPlayerInventory(event)) {
+                event.setCancelled(true);
+                player.sendMessage("§cWood ore limitation! Cannot place axes with Efficiency above 3 in your inventory!");
+                return;
+            }
+
+            // Handle shift-click transfers
+            if (event.isShiftClick() && clickedItem != null && isHighEfficiencyAxe(clickedItem)) {
+                // Check if shift-clicking from a container to player inventory
+                if (event.getInventory() != player.getInventory() &&
+                        event.getSlot() < event.getInventory().getSize()) {
+                    event.setCancelled(true);
+                    player.sendMessage("§cWood ore limitation! Cannot shift-click axes with Efficiency above 3 to your inventory!");
+                    return;
+                }
+            }
+        }
+
+        // Existing armor slot change detection for dirt ore (fixed for 1.21.8)
+        if (oreType == OreType.DIRT && event.getSlotType() == InventoryType.SlotType.ARMOR) {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    checkAndApplyDirtArmor(player);
+                    checkAndApplyDirtMiningFatigue(player);
+                }
+            }.runTaskLater(plugin, 1);
+        }
+    }
+
+    // Helper method to check if an axe has efficiency > 3
+    private boolean isHighEfficiencyAxe(ItemStack item) {
+        if (item == null || !item.getType().name().contains("AXE")) {
+            return false;
+        }
+
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            int efficiencyLevel = meta.getEnchantLevel(Enchantment.EFFICIENCY);
+            return efficiencyLevel > 3;
+        }
+
+        return false;
+    }
+
+    // Helper method to check if item is being moved to player inventory
+    private boolean isMovingToPlayerInventory(InventoryClickEvent event) {
+        // Check if clicking in player inventory area
+        if (event.getClickedInventory() == event.getWhoClicked().getInventory()) {
+            return true;
+        }
+
+        // Check if it's a shift-click that would move to player inventory
+        if (event.isShiftClick() && event.getClickedInventory() != event.getWhoClicked().getInventory()) {
+            return true;
+        }
+
+        return false;
+    }
+
+    // Also add this additional check for drag events (optional but recommended)
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        OreType oreType = dataManager.getPlayerOre(player);
+
+        if (oreType == OreType.WOOD) {
+            ItemStack draggedItem = event.getOldCursor();
+
+            if (isHighEfficiencyAxe(draggedItem)) {
+                // Check if any dragged slots belong to player inventory
+                for (int slot : event.getRawSlots()) {
+                    if (slot < player.getInventory().getSize()) {
+                        event.setCancelled(true);
+                        player.sendMessage("§cWood ore limitation! Cannot drag axes with Efficiency above 3 into your inventory!");
+                        return;
+                    }
+                }
+            }
         }
     }
 
