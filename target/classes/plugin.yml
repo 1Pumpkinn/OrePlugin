@@ -21,7 +21,7 @@ commands:
     permission: oreabilities.trust
   ore:
     description: Main ore command - simplified and easy to use
-    usage: /ore [info|list|help|change|reset|<orename>]
+    usage: /ore [info|list|help|change|reset|recipes|<orename>]
     permission: oreabilities.use
     aliases: [oreabilities, oa]
   ability:
@@ -36,6 +36,11 @@ commands:
     description: Reset ore ability cooldown (Admin only)
     usage: /orecd reset [player]
     permission: oreabilities.admin
+  recipes:
+    description: View ore crafting recipes in a GUI
+    usage: /recipes [ore]
+    permission: oreabilities.use
+    aliases: [recipe, orerecipes]
 
 permissions:
   oreabilities.*:
