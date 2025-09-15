@@ -10,6 +10,7 @@ hs\orePlugin\AbilityManager$3.class
 hs\orePlugin\OreAbilitiesPlugin$1.class
 hs\orePlugin\OreType.class
 hs\orePlugin\AbilityManager$4.class
+hs\orePlugin\RecipeGUI.class
 hs\orePlugin\PlayerListener$4.class
 hs\orePlugin\AbilityListener$2.class
 hs\orePlugin\OreAbilitiesPlugin$2.class
@@ -47,3 +48,4 @@ hs\orePlugin\PlayerDataManager.class
 hs\orePlugin\TrustCommand.class
 hs\orePlugin\TrustManager.class
 hs\orePlugin\AbilityManager$2.class
+hs\orePlugin\RecipeGUI$RecipeData.class

@@ -47,6 +47,12 @@ public class OreAbilitiesCommand implements CommandExecutor {
             return true;
         }
 
+        // NEW: Handle recipes command
+        if (label.equalsIgnoreCase("recipes") || label.equalsIgnoreCase("recipe") || label.equalsIgnoreCase("orerecipes")) {
+            handleRecipeCommand(player, args);
+            return true;
+        }
+
         // Main command handling
         if (args.length == 0) {
             showPlayerInfo(player, dataManager);
@@ -88,6 +94,11 @@ public class OreAbilitiesCommand implements CommandExecutor {
                 handleAbilityCommand(player);
                 break;
 
+            case "recipes":
+            case "recipe":
+                handleRecipeCommand(player, args);
+                break;
+
             case "reload":
                 if (player.hasPermission("oreabilities.admin")) {
                     plugin.reloadConfig();
@@ -109,6 +120,35 @@ public class OreAbilitiesCommand implements CommandExecutor {
         }
 
         return true;
+    }
+
+    // NEW: Handle recipe command
+    private void handleRecipeCommand(Player player, String[] args) {
+        if (args.length < 2) {
+            // Show all recipes GUI
+            plugin.getRecipeGUI().openAllRecipesGUI(player);
+            return;
+        }
+
+        String oreName = args[1].toUpperCase();
+        OreType oreType;
+
+        try {
+            oreType = OreType.valueOf(oreName);
+        } catch (IllegalArgumentException e) {
+            player.sendMessage("§cUnknown ore type: §e" + args[1]);
+            player.sendMessage("§7Use §e/ore recipes §7to see all available recipes");
+            return;
+        }
+
+        if (oreType.isStarter()) {
+            player.sendMessage("§c" + oreType.getDisplayName() + " §cis a starter ore - no recipe needed!");
+            player.sendMessage("§7Starter ores are assigned when you first join");
+            return;
+        }
+
+        // Open specific recipe GUI
+        plugin.getRecipeGUI().openRecipeGUI(player, oreType);
     }
 
     // NEW: Handle ore cooldown command
@@ -173,7 +213,7 @@ public class OreAbilitiesCommand implements CommandExecutor {
             if (activationManager.isBedrockMode(player)) {
                 player.sendMessage("§aAbility Ready! §7(/ability to use)");
             } else {
-                player.sendMessage("§aAbility Ready! §7(Shift+Right-click to use)");
+                player.sendMessage("§aAbility Ready! §7(Shift+Left-click to use)");
             }
         }
 
@@ -201,6 +241,7 @@ public class OreAbilitiesCommand implements CommandExecutor {
         player.sendMessage("  §7• §eNetherite §7- Debris, Debris, Debris");
         player.sendMessage("");
         player.sendMessage("§7Use §e/ore <orename> §7for detailed information");
+        player.sendMessage("§7Use §e/ore recipes §7to view crafting recipes");
     }
 
     private void handleOreInfoCommand(Player player, String[] args) {
@@ -237,6 +278,12 @@ public class OreAbilitiesCommand implements CommandExecutor {
         player.sendMessage("§a✓ Upside: §7" + abilityInfo[2]);
         player.sendMessage("§c✗ Downside: §7" + abilityInfo[3]);
 
+        // Add recipe hint for craftable ores
+        if (!oreType.isStarter()) {
+            player.sendMessage("");
+            player.sendMessage("§7Use §e/ore recipes " + oreType.getDisplayName().toLowerCase() + " §7to view crafting recipe");
+        }
+
         // Add admin command hint
         if (player.hasPermission("oreabilities.admin")) {
             player.sendMessage("");
@@ -250,9 +297,9 @@ public class OreAbilitiesCommand implements CommandExecutor {
             case DIRT:
                 return new String[]{
                         "Earth's Blessing",
-                        "If standing on grass or dirt, get +2 hearts for 15 seconds",
+                        "If standing on grass or dirt, get +8 absorption hearts for 15 seconds",
                         "Leather armor acts like diamond and is unbreakable",
-                        "When wearing leather, have mining fatigue 1"
+                        "Without full leather armor, have mining fatigue 1"
                 };
             case WOOD:
                 return new String[]{
@@ -264,14 +311,14 @@ public class OreAbilitiesCommand implements CommandExecutor {
             case STONE:
                 return new String[]{
                         "Stone Skin",
-                        "Give resistance 1 for 10 seconds",
+                        "Give resistance 1 for 5 seconds",
                         "Standing on stone gives regeneration 1",
                         "Slowness 1 when on stone"
                 };
             case COAL:
                 return new String[]{
                         "Sizzle",
-                        "Smelt the ore in your hand (works with stacks)",
+                        "Smelt the item in your hand (works with stacks)",
                         "Do +1 damage when on fire",
                         "Going in water does damage, rain burns you - find shelter!"
                 };
@@ -279,8 +326,8 @@ public class OreAbilitiesCommand implements CommandExecutor {
                 return new String[]{
                         "Channel The Clouds",
                         "For 10 seconds, all players on hit get struck with lightning",
-                        "Auto enchants with channeling",
-                        "Armor breaks 2x as fast"
+                        "Auto enchants tridents with channeling",
+                        "Armor breaks 1.5x as fast"
                 };
             case IRON:
                 return new String[]{
@@ -328,13 +375,13 @@ public class OreAbilitiesCommand implements CommandExecutor {
                 return new String[]{
                         "Gleaming Power",
                         "When using a diamond sword, do 1.4x damage for 5 seconds",
-                        "Armor takes 2x longer to break",
+                        "Armor takes 1.5x longer to break",
                         "Every ore you break has 50% chance of not dropping"
                 };
             case NETHERITE:
                 return new String[]{
                         "Debris, Debris, Debris",
-                        "Upgrades the item in your hand to netherite",
+                        "Convert Ancient Debris in hand to Netherite Ingots",
                         "No fire damage",
                         "50% chance water buckets turn into lava buckets when placed"
                 };
@@ -456,9 +503,9 @@ public class OreAbilitiesCommand implements CommandExecutor {
         activationManager.setBedrockMode(player, !currentMode);
 
         if (!currentMode) {
-            player.sendMessage("§aBedrock mode enabled! Use §e/ability §ato activate abilities.");
+            player.sendMessage("§aBedrock mode enabled! Use §e/ability §eto activate abilities.");
         } else {
-            player.sendMessage("§7Bedrock mode disabled. Use §eShift+Right-click §7to activate abilities.");
+            player.sendMessage("§7Bedrock mode disabled. Use §eShift+Left-click §7to activate abilities.");
         }
     }
 
@@ -483,6 +530,8 @@ public class OreAbilitiesCommand implements CommandExecutor {
         player.sendMessage("  §e/ore §7- Show your current ore info");
         player.sendMessage("  §e/ore list §7- Show all available ores");
         player.sendMessage("  §e/ore <orename> §7- Get detailed ore info");
+        player.sendMessage("  §e/ore recipes [ore] §7- View crafting recipes");
+        player.sendMessage("  §e/recipes [ore] §7- View crafting recipes (direct command)");
         player.sendMessage("  §e/ability §7- Use ability (Bedrock mode only)");
         player.sendMessage("  §e/bedrock §7- Toggle Bedrock Edition mode");
         player.sendMessage("");
@@ -507,11 +556,12 @@ public class OreAbilitiesCommand implements CommandExecutor {
         if (activationManager.isBedrockMode(player)) {
             player.sendMessage("  §7- Use §e/ability §7to activate abilities");
         } else {
-            player.sendMessage("  §7- §eShift + Right-click §7to activate abilities");
+            player.sendMessage("  §7- §eShift + Left-click §7to activate abilities");
         }
         player.sendMessage("  §7- Craft ore items to unlock new ore types");
         player.sendMessage("  §7- Trust players to prevent friendly fire");
         player.sendMessage("  §7- Each ore has unique abilities and effects");
+        player.sendMessage("  §7- View recipes with §e/recipes §7command");
         player.sendMessage("");
         player.sendMessage("§cNote: §725% chance to shatter when crafting ores!");
     }

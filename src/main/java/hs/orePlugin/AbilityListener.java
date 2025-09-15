@@ -331,7 +331,6 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // NEW: Handle armor durability modifications when player takes damage
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerItemDamage(PlayerItemDamageEvent event) {
         Player player = event.getPlayer();
@@ -346,16 +345,19 @@ public class AbilityListener implements Listener {
         if (isArmor(item.getType())) {
             switch (oreType) {
                 case COPPER:
-                    // Copper: Armor breaks 1.5x faster (increase damage by 50%)
-                    if (random.nextDouble() < 0.5) { // 50% chance to take additional damage
-                        event.setDamage(event.getDamage() + 1);
-                    }
+                    // Copper: Armor breaks 1.5x faster (multiply damage by 1.5)
+                    int copperDamage = (int) Math.ceil(event.getDamage() * 1.5);
+                    event.setDamage(copperDamage);
                     break;
+
                 case DIAMOND:
-                    // Diamond: Armor takes 1.5x longer to break (reduce damage by 33%)
-                    if (random.nextDouble() < 0.33) { // 33% chance to prevent damage
-                        event.setCancelled(true);
+                    // Diamond: Armor takes 1.5x longer to break (reduce damage to ~67% of original)
+                    int diamondDamage = (int) Math.ceil(event.getDamage() / 1.5);
+                    // Ensure at least 1 damage is dealt (but can be 0 if original was 1)
+                    if (event.getDamage() > 1 && diamondDamage < 1) {
+                        diamondDamage = 1;
                     }
+                    event.setDamage(diamondDamage);
                     break;
             }
         }

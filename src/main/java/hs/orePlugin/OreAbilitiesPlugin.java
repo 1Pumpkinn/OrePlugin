@@ -21,6 +21,7 @@ public class OreAbilitiesPlugin extends JavaPlugin {
     private OreConfigs oreConfigs;
     private File playerDataFile;
     private FileConfiguration playerDataConfig;
+    private RecipeGUI recipeGUI;
 
     @Override
     public void onEnable() {
@@ -43,6 +44,7 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         activationManager = new AbilityActivationManager(this);
 
         recipeManager = new RecipeManager(this);
+        recipeGUI = new RecipeGUI(this);
 
         new BukkitRunnable() {
             @Override
@@ -84,6 +86,10 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         if (recipeManager != null) {
             getLogger().info("Removed all custom recipes");
         }
+        if (recipeGUI != null) {
+             recipeGUI.cleanup();
+        }
+
 
         savePlayerData();
         getLogger().info("Ore Abilities Plugin has been disabled!");
@@ -171,5 +177,9 @@ public class OreAbilitiesPlugin extends JavaPlugin {
 
     public PlayerListener getPlayerListener() {
         return playerListener;
+    }
+
+    public RecipeGUI getRecipeGUI() {
+        return recipeGUI;
     }
 }
