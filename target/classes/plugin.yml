@@ -41,6 +41,14 @@ commands:
     usage: /recipes [ore]
     permission: oreabilities.use
     aliases: [recipe, orerecipes]
+  recipe:
+    description: View ore crafting recipes in a GUI (alias)
+    usage: /recipe [ore]
+    permission: oreabilities.use
+  orerecipes:
+    description: View ore crafting recipes in a GUI (alias)
+    usage: /orerecipes [ore]
+    permission: oreabilities.use
 
 permissions:
   oreabilities.*:

@@ -41,13 +41,13 @@ public class OreAbilitiesCommand implements CommandExecutor {
             return true;
         }
 
-        // NEW: Handle orecd command
+        // FIXED: Handle orecd command
         if (label.equalsIgnoreCase("orecd")) {
             handleOreCooldownCommand(player, args);
             return true;
         }
 
-        // NEW: Handle recipes command
+        // FIXED: Handle recipes command - this is the main fix!
         if (label.equalsIgnoreCase("recipes") || label.equalsIgnoreCase("recipe") || label.equalsIgnoreCase("orerecipes")) {
             handleRecipeCommand(player, args);
             return true;
@@ -122,22 +122,32 @@ public class OreAbilitiesCommand implements CommandExecutor {
         return true;
     }
 
-    // NEW: Handle recipe command
+    // FIXED: Handle recipe command with proper argument handling
     private void handleRecipeCommand(Player player, String[] args) {
-        if (args.length < 2) {
+        // Check if this was called directly as /recipes command
+        if (args.length == 0) {
             // Show all recipes GUI
             plugin.getRecipeGUI().openAllRecipesGUI(player);
             return;
         }
 
-        String oreName = args[1].toUpperCase();
+        // If called with arguments (either /recipes <ore> or /ore recipes <ore>)
+        String oreName;
+        if (args.length == 1) {
+            // Direct call like /recipes coal
+            oreName = args[0].toUpperCase();
+        } else {
+            // Subcommand call like /ore recipes coal
+            oreName = args[1].toUpperCase();
+        }
+
         OreType oreType;
 
         try {
             oreType = OreType.valueOf(oreName);
         } catch (IllegalArgumentException e) {
-            player.sendMessage("§cUnknown ore type: §e" + args[1]);
-            player.sendMessage("§7Use §e/ore recipes §7to see all available recipes");
+            player.sendMessage("§cUnknown ore type: §e" + oreName);
+            player.sendMessage("§7Use §e/recipes §7to see all available recipes");
             return;
         }
 
@@ -151,7 +161,7 @@ public class OreAbilitiesCommand implements CommandExecutor {
         plugin.getRecipeGUI().openRecipeGUI(player, oreType);
     }
 
-    // NEW: Handle ore cooldown command
+    // Handle ore cooldown command
     private void handleOreCooldownCommand(Player player, String[] args) {
         if (!player.hasPermission("oreabilities.admin")) {
             player.sendMessage("§cYou don't have permission to use this command!");
@@ -241,7 +251,7 @@ public class OreAbilitiesCommand implements CommandExecutor {
         player.sendMessage("  §7• §eNetherite §7- Debris, Debris, Debris");
         player.sendMessage("");
         player.sendMessage("§7Use §e/ore <orename> §7for detailed information");
-        player.sendMessage("§7Use §e/ore recipes §7to view crafting recipes");
+        player.sendMessage("§7Use §e/recipes §7to view crafting recipes");
     }
 
     private void handleOreInfoCommand(Player player, String[] args) {
@@ -281,7 +291,7 @@ public class OreAbilitiesCommand implements CommandExecutor {
         // Add recipe hint for craftable ores
         if (!oreType.isStarter()) {
             player.sendMessage("");
-            player.sendMessage("§7Use §e/ore recipes " + oreType.getDisplayName().toLowerCase() + " §7to view crafting recipe");
+            player.sendMessage("§7Use §e/recipes " + oreType.getDisplayName().toLowerCase() + " §7to view crafting recipe");
         }
 
         // Add admin command hint

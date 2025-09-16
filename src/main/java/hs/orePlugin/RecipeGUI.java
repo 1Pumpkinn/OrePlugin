@@ -149,49 +149,50 @@ public class RecipeGUI implements Listener {
             return;
         }
 
-        // Create 54-slot inventory (6 rows) to match the image layout
-        Inventory gui = Bukkit.createInventory(null, 54, recipeData.title);
+        // Create 27-slot inventory (3 rows x 9 columns) - exact same as image
+        Inventory gui = Bukkit.createInventory(null, 27, recipeData.title);
 
-        // Fill with glass panes for decoration
+        // Fill entire GUI with gray glass panes first
         ItemStack grayGlass = createItem(Material.GRAY_STAINED_GLASS_PANE, " ", null);
-        for (int i = 0; i < 54; i++) {
+        for (int i = 0; i < 27; i++) {
             gui.setItem(i, grayGlass);
         }
 
-        // Recipe slots (3x3 grid in center-left area)
-        int[] recipeSlots = {10, 11, 12, 19, 20, 21, 28, 29, 30};
+        // Recipe slots in center 3x3 grid (slots 10, 11, 12, 19, 20, 21, 28, 29, 30)
+        // But since we only have 27 slots (0-26), the bottom row is 18, 19, 20
+        int[] recipeSlots = {10, 11, 12, 19, 20, 21}; // Only 2 rows visible in 27-slot inventory
 
-        // Place recipe items
+        // Actually, let me map this correctly for a 27-slot inventory to match the image exactly:
+        // Top row: slots 3, 4, 5
+        // Middle row: slots 12, 13, 14
+        // Bottom row: slots 21, 22, 23
+        int[] correctRecipeSlots = {3, 4, 5, 12, 13, 14, 21, 22, 23};
+
+        // Place recipe items in the 3x3 grid
         int recipeIndex = 0;
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 3; col++) {
-                Material material = recipeData.recipe[row][col];
-                if (material != null && material != Material.AIR) {
-                    ItemStack item = new ItemStack(material);
-                    gui.setItem(recipeSlots[recipeIndex], item);
+                if (recipeIndex < correctRecipeSlots.length) {
+                    Material material = recipeData.recipe[row][col];
+                    if (material != null && material != Material.AIR) {
+                        ItemStack item = new ItemStack(material);
+                        gui.setItem(correctRecipeSlots[recipeIndex], item);
+                    }
+                    recipeIndex++;
                 }
-                recipeIndex++;
             }
         }
 
-        // Arrow pointing to result
-        gui.setItem(23, createItem(Material.ARROW, "§6→ Crafting Result", null));
-
-        // Result item (right side)
+        // Result item (slot 7 - top right area)
         ItemStack result = plugin.getRecipeManager().createOreItem(oreType);
-        gui.setItem(25, result);
+        gui.setItem(16, result);
 
-        // Info panel at bottom
-        gui.setItem(40, createItem(Material.BOOK, "§6Recipe Information", recipeData.description));
+        // Arrow pointing right (slot 6 - next to result)
+        ItemStack arrow = createItem(Material.RED_STAINED_GLASS_PANE, "§c→", Arrays.asList("§7Crafting Result"));
+        gui.setItem(15, arrow);
 
-        // Close button
-        gui.setItem(49, createItem(Material.BARRIER, "§cClose", Arrays.asList("§7Click to close this menu")));
-
-        // Warning about shatter chance
-        OreConfigs configs = plugin.getOreConfigs();
-        int shatterPercent = configs != null ? (int)(configs.getShatterChance() * 100) : 25;
-        gui.setItem(31, createItem(Material.TNT, "§c⚠ Shatter Warning",
-                Arrays.asList("§7There's a §c" + shatterPercent + "% chance §7this recipe", "§7will shatter during crafting!", "§cMaterials are consumed even if it shatters!")));
+        // Info panel (slot 25 - bottom right)
+        gui.setItem(25, createItem(Material.BOOK, "§6Recipe Information", recipeData.description));
 
         openGUIs.put(player, gui);
         player.openInventory(gui);
@@ -199,16 +200,16 @@ public class RecipeGUI implements Listener {
     }
 
     public void openAllRecipesGUI(Player player) {
-        Inventory gui = Bukkit.createInventory(null, 54, "§6§lAll Ore Recipes");
+        Inventory gui = Bukkit.createInventory(null, 27, "§6§lAll Ore Recipes");
 
-        // Fill with glass panes
-        ItemStack grayGlass = createItem(Material.GRAY_STAINED_GLASS_PANE, " ", null);
-        for (int i = 0; i < 54; i++) {
-            gui.setItem(i, grayGlass);
+        // Fill with light gray glass panes
+        ItemStack lightGrayGlass = createItem(Material.LIGHT_GRAY_STAINED_GLASS_PANE, " ", null);
+        for (int i = 0; i < 27; i++) {
+            gui.setItem(i, lightGrayGlass);
         }
 
-        // Add ore items for selection
-        int[] slots = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34};
+        // Add ore items for selection in a compact grid layout
+        int[] slots = {1, 2, 3, 5, 6, 7, 10, 11, 12, 14, 15, 16, 19, 20, 21, 23, 24, 25};
         int index = 0;
 
         for (OreType oreType : OreType.values()) {
@@ -224,8 +225,12 @@ public class RecipeGUI implements Listener {
             }
         }
 
-        // Close button
-        gui.setItem(49, createItem(Material.BARRIER, "§cClose", Arrays.asList("§7Click to close this menu")));
+        // Close button (center bottom)
+        gui.setItem(22, createItem(Material.BARRIER, "§cClose", Arrays.asList("§7Click to close this menu")));
+
+        // Info about starter ores (bottom left corner)
+        gui.setItem(18, createItem(Material.GRASS_BLOCK, "§aStarter Ores",
+                Arrays.asList("§7Dirt, Wood, and Stone ores", "§7are given when you first join!", "§7No recipe needed for these.")));
 
         openGUIs.put(player, gui);
         player.openInventory(gui);

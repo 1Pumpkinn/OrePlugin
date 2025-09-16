@@ -317,7 +317,7 @@ public class RecipeManager implements Listener {
             String oreColor = getOreColor(oreType);
             String abilityName = getAbilityName(oreType);
 
-            meta.setDisplayName(oreColor + oreType.getDisplayName() + " Ore Mastery");
+            meta.setDisplayName(oreColor + oreType.getDisplayName() + " Ore");
 
             OreConfigs configs = plugin.getOreConfigs();
             int shatterPercent = configs != null ? (int)(configs.getShatterChance() * 100) : 25;
@@ -328,9 +328,7 @@ public class RecipeManager implements Listener {
                     "§7Cooldown: §b" + oreType.getCooldown() + "s",
                     "",
                     "§c⚠ " + shatterPercent + "% chance to shatter during crafting!",
-                    "§7Materials will be consumed even if shattered",
-                    "§a✓ Can be crafted multiple times to refresh effects",
-                    "§8Ore Abilities Plugin"
+                    "§7Materials will be consumed even if shattered"
             ));
             meta.setCustomModelData(1000 + oreType.ordinal());
             item.setItemMeta(meta);
@@ -390,7 +388,7 @@ public class RecipeManager implements Listener {
 
     public static boolean isDirectOreItem(ItemStack item) {
         if (item == null || !item.hasItemMeta() || !item.getItemMeta().hasDisplayName()) return false;
-        return item.getItemMeta().getDisplayName().contains("Ore Mastery");
+        return item.getItemMeta().getDisplayName().contains("Ore");
     }
 
     public static OreType getOreTypeFromDirectItem(ItemStack item) {

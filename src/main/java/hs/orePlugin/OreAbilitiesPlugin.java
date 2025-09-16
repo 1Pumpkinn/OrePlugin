@@ -61,16 +61,25 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         OreAbilitiesCommand mainCommand = new OreAbilitiesCommand(this);
         TrustCommand trustCommand = new TrustCommand(this);
 
+        // Register trust commands
         getCommand("trust").setExecutor(trustCommand);
         getCommand("untrust").setExecutor(trustCommand);
         getCommand("trustlist").setExecutor(trustCommand);
+
+        // Register main ore commands
         getCommand("ore").setExecutor(mainCommand);
         getCommand("ability").setExecutor(mainCommand);
         getCommand("bedrock").setExecutor(mainCommand);
         getCommand("orecd").setExecutor(mainCommand);
 
+        // FIXED: Register recipes commands properly
+        getCommand("recipes").setExecutor(mainCommand);
+        getCommand("recipe").setExecutor(mainCommand);
+        getCommand("orerecipes").setExecutor(mainCommand);
+
         getLogger().info("Ore Abilities Plugin has been enabled!");
         getLogger().info("Features: Dirt leather armor is truly unbreakable, LAPIS can enchant with 0 levels!");
+        getLogger().info("Recipe commands registered: /recipes, /recipe, /orerecipes");
     }
 
     @Override
@@ -87,9 +96,8 @@ public class OreAbilitiesPlugin extends JavaPlugin {
             getLogger().info("Removed all custom recipes");
         }
         if (recipeGUI != null) {
-             recipeGUI.cleanup();
+            recipeGUI.cleanup();
         }
-
 
         savePlayerData();
         getLogger().info("Ore Abilities Plugin has been disabled!");
