@@ -136,9 +136,9 @@ public class AbilityManager {
         loc.add(0, 1, 0);
 
         if (below == Material.GRASS_BLOCK || below == Material.DIRT) {
-            // UPDATED: Changed from level 3 (4 hearts) to level 7 (8 hearts) - Absorption gives 2 hearts per level
-            player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 300, 7));
-            player.sendMessage("§aEarth's Blessing activated! +8 absorption hearts for 15 seconds!");
+            // FIXED: Changed from level 7 (8 hearts) to level 1 (2 hearts)
+            player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 300, 1));
+            player.sendMessage("§aEarth's Blessing activated! +2 absorption hearts for 15 seconds!");
             player.playSound(player.getLocation(), Sound.BLOCK_GRASS_BREAK, 1.0f, 1.0f);
         } else {
             player.sendMessage("§cYou must be standing on grass or dirt!");
@@ -161,7 +161,7 @@ public class AbilityManager {
             }
         }
 
-        player.sendMessage("§6Lumberjack's Fury activated! Axes deal 1.5x damage for 5 seconds!");
+        player.sendMessage("§6Lumberjack's Fury activated! Axes deal 1.3x damage for 5 seconds!");
         player.playSound(player.getLocation(), Sound.BLOCK_WOOD_BREAK, 1.0f, 1.0f);
 
         new BukkitRunnable() {
@@ -444,7 +444,7 @@ public class AbilityManager {
         }
 
         if (validSlots.isEmpty()) {
-            player.sendMessage("§c⚠ Iron curse tried to drop an item, but your inventory is empty!");
+            player.sendMessage("§c⚠ Iron downside tried to drop an item, but your inventory is empty!");
             plugin.getLogger().info("Iron drop failed for " + player.getName() + " - no items in inventory");
             return;
         }
@@ -463,7 +463,7 @@ public class AbilityManager {
             player.getInventory().setItem(randomSlot, null);
         }
 
-        player.sendMessage("§c⚠ Iron curse! A " + itemToDrop.getType().name().toLowerCase().replace("_", " ") + " dropped from your inventory!");
+        player.sendMessage("§c⚠ Iron downside! A " + itemToDrop.getType().name().toLowerCase().replace("_", " ") + " dropped from your inventory!");
         player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1.0f, 0.5f);
 
         plugin.getLogger().info("Iron drop successful for " + player.getName() + " - dropped " + itemToDrop.getType().name());
@@ -527,11 +527,25 @@ public class AbilityManager {
             amethystGlowTasks.remove(uuid);
         }
         player.removePotionEffect(PotionEffectType.GLOWING);
+        cleanupAmethystTeamMembership(player);
 
         Scoreboard scoreboard = player.getServer().getScoreboardManager().getMainScoreboard();
         Team amethystTeam = scoreboard.getTeam("amethyst");
         if (amethystTeam != null && amethystTeam.hasEntry(player.getName())) {
             amethystTeam.removeEntry(player.getName());
+        }
+    }
+
+    private void cleanupAmethystTeamMembership(Player player) {
+        try {
+            Scoreboard scoreboard = player.getServer().getScoreboardManager().getMainScoreboard();
+            Team amethystTeam = scoreboard.getTeam("amethyst");
+            if (amethystTeam != null && amethystTeam.hasEntry(player.getName())) {
+                amethystTeam.removeEntry(player.getName());
+                plugin.getLogger().info("Removed " + player.getName() + " from amethyst team");
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error removing player from amethyst team: " + e.getMessage());
         }
     }
 
@@ -595,6 +609,8 @@ public class AbilityManager {
         if (amethystGlowTasks.containsKey(uuid)) {
             amethystGlowTasks.get(uuid).cancel();
             amethystGlowTasks.remove(uuid);
+            // FIXED: Clean up team membership on cleanup
+            cleanupAmethystTeamMembership(player);
         }
 
         if (noJumpTasks.containsKey(uuid)) {

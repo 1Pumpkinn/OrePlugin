@@ -55,7 +55,6 @@ public class PlayerListener implements Listener {
             }
         }
 
-        // FIXED: Apply ALL passive effects immediately upon join with proper method calls
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -74,8 +73,6 @@ public class PlayerListener implements Listener {
         plugin.getAbilityManager().cleanup(player);
         plugin.getAbilityListener().cleanup(player);
 
-        // Clean up Netherite tracking (no tasks to cancel)
-        // Fire resistance is handled directly in damage events
 
         emeraldWeaknessCheck.remove(player.getUniqueId());
         dirtArmorCheck.remove(player.getUniqueId());
@@ -122,13 +119,25 @@ public class PlayerListener implements Listener {
                 AttributeInstance ironArmor = player.getAttribute(Attribute.ARMOR);
                 if (ironArmor != null) {
                     double current = ironArmor.getBaseValue();
-                    ironArmor.setBaseValue(Math.max(0, current - 2));
+                    double newValue = Math.max(0.0, current - 2.0);
+                    ironArmor.setBaseValue(newValue);
+                    player.sendMessage("§7Iron armor bonus removed: -1 armor bar");
+                    plugin.getLogger().info("Removed iron armor bonus from " + player.getName() +
+                            " - Armor: " + current + " -> " + newValue);
                 }
                 plugin.getLogger().info("Cleaned up iron effects for " + player.getName());
                 break;
             case NETHERITE:
                 // Fire resistance is handled directly in AbilityListener damage events
                 plugin.getLogger().info("Cleaned up netherite effects for " + player.getName());
+                break;
+            case COPPER:
+                // FIXED: No timer to clean up - just log
+                plugin.getLogger().info("Cleaned up copper effects for " + player.getName());
+                break;
+            case DIAMOND:
+                // FIXED: No timer to clean up - just log
+                plugin.getLogger().info("Cleaned up diamond effects for " + player.getName());
                 break;
             default:
                 plugin.getLogger().info("No specific cleanup needed for " + oreType.name());
@@ -137,7 +146,6 @@ public class PlayerListener implements Listener {
         player.sendMessage("§7Cleaned up " + oreType.getDisplayName() + " ore tracking data.");
     }
 
-    // NEW: Handle shift+left-click interaction for Netherite ancient debris conversion
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (event.getAction() != Action.LEFT_CLICK_AIR && event.getAction() != Action.LEFT_CLICK_BLOCK) {
@@ -388,10 +396,7 @@ public class PlayerListener implements Listener {
         }
     }
 
-    // REMOVED: Fire resistance is now handled directly in AbilityListener damage events
-    // This ensures 100% reliable fire immunity without potion effect timing issues
 
-    // FIXED: Apply ALL passive effects immediately and correctly with proper method calls
     private void applyAllPassiveEffectsFixed(Player player) {
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
         OreType oreType = dataManager.getPlayerOre(player);
@@ -404,55 +409,50 @@ public class PlayerListener implements Listener {
                 break;
 
             case IRON:
-                // Permanent +2 armor attribute
                 AttributeInstance armor = player.getAttribute(Attribute.ARMOR);
                 if (armor != null) {
-                    armor.setBaseValue(armor.getBaseValue() + 2);
+                    double currentBase = armor.getBaseValue();
+                    armor.setBaseValue(currentBase + 2.0);
+                    player.sendMessage("§7Iron passive: +1 armor bar applied!");
+                    plugin.getLogger().info("Applied iron armor bonus to " + player.getName() +
+                            " - Base armor: " + currentBase + " -> " + (currentBase + 2.0));
                 }
-                // FIXED: Start the iron drop timer properly
                 plugin.getAbilityManager().startIronDropTimer(player);
                 break;
 
             case NETHERITE:
-                // Fire resistance is handled directly in AbilityListener damage events
-                // No setup needed - it's completely passive
+                player.sendMessage("§4Netherite passive: Complete fire immunity!");
                 break;
 
             case AMETHYST:
-                // FIXED: Start persistent glowing effect immediately with proper method call
+                // Start persistent glowing effect immediately with proper method call
                 plugin.getAbilityManager().startAmethystGlowing(player);
                 break;
 
             case EMERALD:
-                // Infinite hero of the village AND check emerald requirement
+                // FIXED: Apply Hero of the Village level 10 (effect level 9 = display level 10)
                 player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9, false, false));
+                player.sendMessage("§aEmerald passive: Hero of the Village 10 applied!");
                 // Initial emerald weakness check
                 handleEmeraldWeakness(player);
                 break;
 
             case COPPER:
-                // FIXED: Start copper armor durability timer
-                plugin.getAbilityListener().startCopperArmorDurabilityTimer(player);
+                player.sendMessage("§3Copper passive: Armor takes more durability damage when hit!");
                 break;
 
             case DIAMOND:
-                // FIXED: Start diamond armor protection timer
-                plugin.getAbilityListener().startDiamondArmorProtectionTimer(player);
+                player.sendMessage("§bDiamond passive: Armor takes less durability damage when hit!");
                 break;
 
             case COAL:
+                player.sendMessage("§8Coal passive: Takes damage from water and rain!");
                 break;
 
             case REDSTONE:
-                break;
-
             case LAPIS:
-                break;
-
             case GOLD:
-                break;
             case WOOD:
-                break;
             case STONE:
                 break;
         }

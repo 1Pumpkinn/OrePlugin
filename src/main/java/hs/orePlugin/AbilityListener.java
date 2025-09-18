@@ -35,15 +35,11 @@ public class AbilityListener implements Listener {
     private final Random random = new Random();
     private final Map<UUID, Long> lastWaterDamageTime = new HashMap<>();
     private final Map<UUID, Long> lastRainDamageTime = new HashMap<>();
-    private final Map<UUID, BukkitRunnable> copperArmorTasks = new HashMap<>();
-    private final Map<UUID, BukkitRunnable> diamondArmorTasks = new HashMap<>();
     private final Map<UUID, BukkitRunnable> coalRainTasks = new HashMap<>();
 
     public AbilityListener(OreAbilitiesPlugin plugin) {
         this.plugin = plugin;
     }
-
-    // Only showing the relevant method that needs to be updated in AbilityListener.java
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onEntityDamage(EntityDamageEvent event) {
@@ -162,7 +158,7 @@ public class AbilityListener implements Listener {
             }.runTaskLater(plugin, 2);
         }
 
-        // NEW: Prevent wood players from picking up efficiency > 3 axes
+        // Prevent wood players from picking up efficiency > 3 axes
         if (oreType == OreType.WOOD) {
             ItemStack item = event.getItem().getItemStack();
             if (item.getType().name().contains("AXE")) {
@@ -175,7 +171,6 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // NEW: Prevent wood players from enchanting axes above efficiency 3
     @EventHandler
     public void onEnchantItem(EnchantItemEvent event) {
         if (!(event.getEnchanter() instanceof Player)) return;
@@ -213,7 +208,6 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // NEW: Prevent wood players from using anvils to get efficiency > 3 on axes
     @EventHandler
     public void onPrepareAnvil(PrepareAnvilEvent event) {
         if (!(event.getView().getPlayer() instanceof Player player)) return;
@@ -243,15 +237,14 @@ public class AbilityListener implements Listener {
         OreType oreType = plugin.getPlayerDataManager().getPlayerOre(player);
 
         if (oreType == OreType.LAPIS && event.getSlotType() == InventoryType.SlotType.RESULT) {
-            // Make sure they are taking the result
             if (event.getCurrentItem() != null && !event.getCurrentItem().getType().isAir()) {
-                // Override level cost
                 anvil.setRepairCost(0);
                 player.setLevel(player.getLevel());
             }
         }
     }
 
+    // FIXED: Armor durability is now handled when damage is taken, not on timers
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerItemDamage(PlayerItemDamageEvent event) {
         Player player = event.getPlayer();
@@ -266,24 +259,22 @@ public class AbilityListener implements Listener {
         if (isArmor(item.getType())) {
             switch (oreType) {
                 case COPPER:
-                    // Copper: Armor breaks 1.5x faster (multiply damage by 1.5)
                     int copperDamage = (int) Math.ceil(event.getDamage() * 1.5);
                     event.setDamage(copperDamage);
+                    player.sendMessage("§cCopper downside! Armor takes extra durability damage!");
                     break;
 
                 case DIAMOND:
-                    // Diamond: Armor takes 1.5x longer to break (reduce damage to ~67% of original)
                     int diamondDamage = (int) Math.ceil(event.getDamage() / 1.5);
-                    // Ensure at least 1 damage is dealt (but can be 0 if original was 1)
                     if (event.getDamage() > 1 && diamondDamage < 1) {
                         diamondDamage = 1;
                     }
                     event.setDamage(diamondDamage);
+                    player.sendMessage("§bDiamond upside! Armor takes less durability damage!");
                     break;
             }
         }
 
-        // Keep existing dirt leather armor protection
         if (oreType == OreType.DIRT) {
             if (item != null && item.getType().name().contains("LEATHER")) {
                 event.setCancelled(true);
@@ -432,7 +423,7 @@ public class AbilityListener implements Listener {
                         damageable.setDamage(damageValue);
                         item.setItemMeta((ItemMeta) damageable);
 
-                        player.sendMessage("§6Gold curse! Item durability set to " + randomDurability + "/" + maxDurability + "!");
+                        player.sendMessage("§6Gold downside! Item durability set to " + randomDurability + "/" + maxDurability + "!");
                         player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_PLACE, 1.0f, 0.8f);
                         break;
                     }
@@ -441,6 +432,7 @@ public class AbilityListener implements Listener {
         }
     }
 
+    // FIXED: Removed armor timer methods, simplified effect application
     public void applyAllOreTypeEffectsFixed(Player player, OreType oreType) {
         switch (oreType) {
             case DIRT:
@@ -451,7 +443,8 @@ public class AbilityListener implements Listener {
                 AttributeInstance armorAttribute = player.getAttribute(Attribute.ARMOR);
                 if (armorAttribute != null) {
                     double currentBase = armorAttribute.getBaseValue();
-                    armorAttribute.setBaseValue(currentBase + 2);
+                    armorAttribute.setBaseValue(currentBase + 2.0);
+                    player.sendMessage("§7Iron bonus: +1 armor bar applied!");
                 }
                 plugin.getAbilityManager().startIronDropTimer(player);
                 break;
@@ -460,16 +453,20 @@ public class AbilityListener implements Listener {
                 break;
             case EMERALD:
                 player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9, false, false));
+                player.sendMessage("§aEmerald blessing: Hero of the Village 10 applied!");
                 break;
             case COPPER:
-                startCopperArmorDurabilityTimer(player);
+                // No timer needed - armor durability handled in damage events
+                player.sendMessage("§3Copper passive: Armor takes more durability damage when hit!");
                 break;
             case DIAMOND:
-                startDiamondArmorProtectionTimer(player);
+                // No timer needed - armor durability handled in damage events
+                player.sendMessage("§bDiamond passive: Armor takes less durability damage when hit!");
                 break;
         }
     }
 
+    // FIXED: Removed armor timer cleanup
     public void removeAllOreTypeEffectsFixed(Player player, OreType oreType) {
         switch (oreType) {
             case DIRT:
@@ -483,22 +480,27 @@ public class AbilityListener implements Listener {
                 AttributeInstance armorAttribute = player.getAttribute(Attribute.ARMOR);
                 if (armorAttribute != null) {
                     double currentBase = armorAttribute.getBaseValue();
-                    armorAttribute.setBaseValue(Math.max(0, currentBase - 2));
+                    armorAttribute.setBaseValue(Math.max(0.0, currentBase - 2.0));
+                    player.sendMessage("§7Iron bonus removed: -1 armor bar");
                 }
                 plugin.getAbilityManager().cancelIronDropTimer(player);
                 break;
             case AMETHYST:
                 plugin.getAbilityManager().cancelAmethystGlowing(player);
+                // Clean up team membership
+                cleanupAmethystTeam(player);
                 break;
             case EMERALD:
                 player.removePotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE);
                 player.removePotionEffect(PotionEffectType.WEAKNESS);
                 break;
             case COPPER:
-                stopCopperArmorDurabilityTimer(player);
+                // No timer to stop
+                player.sendMessage("§7Copper armor effect removed");
                 break;
             case DIAMOND:
-                stopDiamondArmorProtectionTimer(player);
+                // No timer to stop
+                player.sendMessage("§7Diamond armor effect removed");
                 break;
             case STONE:
                 player.removePotionEffect(PotionEffectType.REGENERATION);
@@ -517,6 +519,20 @@ public class AbilityListener implements Listener {
             case LAPIS:
             case GOLD:
                 break;
+        }
+    }
+
+    // Add method to clean up amethyst team membership
+    private void cleanupAmethystTeam(Player player) {
+        try {
+            org.bukkit.scoreboard.Scoreboard scoreboard = player.getServer().getScoreboardManager().getMainScoreboard();
+            org.bukkit.scoreboard.Team amethystTeam = scoreboard.getTeam("amethyst");
+            if (amethystTeam != null && amethystTeam.hasEntry(player.getName())) {
+                amethystTeam.removeEntry(player.getName());
+                player.sendMessage("§7Amethyst team membership removed");
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Could not remove player from amethyst team: " + e.getMessage());
         }
     }
 
@@ -600,108 +616,6 @@ public class AbilityListener implements Listener {
         }
     }
 
-    public void startCopperArmorDurabilityTimer(Player player) {
-        stopCopperArmorDurabilityTimer(player);
-
-        BukkitRunnable task = new BukkitRunnable() {
-            @Override
-            public void run() {
-                PlayerDataManager dataManager = plugin.getPlayerDataManager();
-                if (dataManager.getPlayerOre(player) != OreType.COPPER || !player.isOnline()) {
-                    cancel();
-                    copperArmorTasks.remove(player.getUniqueId());
-                    return;
-                }
-
-                ItemStack[] armorContents = player.getInventory().getArmorContents();
-                boolean armorDamaged = false;
-
-                for (ItemStack armor : armorContents) {
-                    if (armor != null && armor.getType() != Material.AIR) {
-                        if (armor.getItemMeta() instanceof Damageable) {
-                            Damageable damageable = (Damageable) armor.getItemMeta();
-                            int currentDamage = damageable.getDamage();
-                            int maxDurability = armor.getType().getMaxDurability();
-
-                            if (maxDurability > 0 && currentDamage < maxDurability) {
-                                damageable.setDamage(currentDamage + 2);
-                                armor.setItemMeta((ItemMeta) damageable);
-                                armorDamaged = true;
-                            }
-                        }
-                    }
-                }
-
-                if (armorDamaged) {
-                    player.getInventory().setArmorContents(armorContents);
-                }
-            }
-        };
-
-        task.runTaskTimer(plugin, 100, 100);
-        copperArmorTasks.put(player.getUniqueId(), task);
-    }
-
-    public void stopCopperArmorDurabilityTimer(Player player) {
-        BukkitRunnable task = copperArmorTasks.remove(player.getUniqueId());
-        if (task != null) {
-            task.cancel();
-        }
-    }
-
-    public void startDiamondArmorProtectionTimer(Player player) {
-        stopDiamondArmorProtectionTimer(player);
-
-        BukkitRunnable task = new BukkitRunnable() {
-            private int skipCounter = 0;
-
-            @Override
-            public void run() {
-                PlayerDataManager dataManager = plugin.getPlayerDataManager();
-                if (dataManager.getPlayerOre(player) != OreType.DIAMOND || !player.isOnline()) {
-                    cancel();
-                    diamondArmorTasks.remove(player.getUniqueId());
-                    return;
-                }
-
-                skipCounter++;
-                if (skipCounter % 2 == 0) {
-                    ItemStack[] armorContents = player.getInventory().getArmorContents();
-                    boolean armorRepaired = false;
-
-                    for (ItemStack armor : armorContents) {
-                        if (armor != null && armor.getType() != Material.AIR) {
-                            if (armor.getItemMeta() instanceof Damageable) {
-                                Damageable damageable = (Damageable) armor.getItemMeta();
-                                int currentDamage = damageable.getDamage();
-
-                                if (currentDamage > 0) {
-                                    damageable.setDamage(Math.max(0, currentDamage - 1));
-                                    armor.setItemMeta((ItemMeta) damageable);
-                                    armorRepaired = true;
-                                }
-                            }
-                        }
-                    }
-
-                    if (armorRepaired) {
-                        player.getInventory().setArmorContents(armorContents);
-                    }
-                }
-            }
-        };
-
-        task.runTaskTimer(plugin, 100, 100);
-        diamondArmorTasks.put(player.getUniqueId(), task);
-    }
-
-    public void stopDiamondArmorProtectionTimer(Player player) {
-        BukkitRunnable task = diamondArmorTasks.remove(player.getUniqueId());
-        if (task != null) {
-            task.cancel();
-        }
-    }
-
     @EventHandler
     public void onPlayerExpChange(PlayerExpChangeEvent event) {
         Player player = event.getPlayer();
@@ -726,7 +640,7 @@ public class AbilityListener implements Listener {
                     @Override
                     public void run() {
                         player.getInventory().setItemInMainHand(new ItemStack(Material.LAVA_BUCKET));
-                        player.sendMessage("§4Netherite curse! Your water bucket turned to lava!");
+                        player.sendMessage("§4Netherite downside! Your water bucket turned to lava!");
                     }
                 }.runTaskLater(plugin, 1);
             }
@@ -744,8 +658,6 @@ public class AbilityListener implements Listener {
             player.sendMessage("§cLapis prevents you from trading with villagers!");
         }
     }
-
-    // Add this method to AbilityListener.java after the existing onAnvilClick method
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
@@ -786,7 +698,7 @@ public class AbilityListener implements Listener {
             }
         }
 
-        // Existing armor slot change detection for dirt ore (fixed for 1.21.8)
+        // Existing armor slot change detection for dirt ore
         if (oreType == OreType.DIRT && event.getSlotType() == InventoryType.SlotType.ARMOR) {
             new BukkitRunnable() {
                 @Override
@@ -828,7 +740,6 @@ public class AbilityListener implements Listener {
         return false;
     }
 
-    // Also add this additional check for drag events (optional but recommended)
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
@@ -881,8 +792,6 @@ public class AbilityListener implements Listener {
     public void cleanup(Player player) {
         lastWaterDamageTime.remove(player.getUniqueId());
         lastRainDamageTime.remove(player.getUniqueId());
-        stopCopperArmorDurabilityTimer(player);
-        stopDiamondArmorProtectionTimer(player);
         stopCoalRainTimer(player);
     }
 }

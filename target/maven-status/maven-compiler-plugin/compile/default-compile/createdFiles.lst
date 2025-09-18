@@ -1,7 +1,6 @@
 hs\orePlugin\AbilityActivationManager$1.class
 hs\orePlugin\RecipeManager$1.class
 hs\orePlugin\AbilityListener$3.class
-hs\orePlugin\AbilityListener$10.class
 hs\orePlugin\AbilityListener$7.class
 hs\orePlugin\RecipeManager.class
 hs\orePlugin\AbilityManager$6.class
@@ -39,7 +38,6 @@ hs\orePlugin\OreItemListener.class
 hs\orePlugin\AbilityListener$6.class
 hs\orePlugin\AbilityManager.class
 hs\orePlugin\PlayerListener$2.class
-hs\orePlugin\AbilityListener$11.class
 hs\orePlugin\AbilityManager$9.class
 hs\orePlugin\OreAbilitiesCommand$1.class
 hs\orePlugin\OreItemListener$1.class

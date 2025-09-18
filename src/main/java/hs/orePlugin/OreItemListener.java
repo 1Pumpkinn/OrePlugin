@@ -122,7 +122,6 @@ public class OreItemListener implements Listener {
             removeOreTypeEffectsFixed(player, currentOre);
         }
 
-        // Actually set the new ore type
         dataManager.setPlayerOre(player, newOreType);
         return true;
     }
@@ -163,11 +162,9 @@ public class OreItemListener implements Listener {
         plugin.getActionBarManager().startActionBar(player);
     }
 
-    // FIXED: Complete ore type effect application with all proper method calls
     private void applyOreTypeEffectsFixed(Player player, OreType oreType) {
         switch (oreType) {
             case DIRT:
-                // Apply dirt armor and mining fatigue effects immediately
                 checkAndApplyDirtEffects(player);
                 break;
             case IRON:
@@ -175,7 +172,7 @@ public class OreItemListener implements Listener {
                 plugin.getAbilityManager().startIronDropTimer(player);
                 break;
             case AMETHYST:
-                // FIXED: Start the glowing effect properly
+                // Start the glowing effect properly
                 plugin.getAbilityManager().startAmethystGlowing(player);
                 break;
             case EMERALD:
@@ -184,33 +181,31 @@ public class OreItemListener implements Listener {
                 handleEmeraldWeakness(player);
                 break;
             case STONE:
-                // Stone effects are handled in PlayerListener based on movement
+                player.sendMessage("§7Stone passive: Regeneration and slowness when standing on stone!");
                 break;
             case COPPER:
-                // FIXED: Start copper armor durability timer
-                plugin.getAbilityListener().startCopperArmorDurabilityTimer(player);
+                player.sendMessage("§3Copper passive: Armor takes more durability damage when hit!");
                 break;
             case DIAMOND:
-                // FIXED: Start diamond armor protection timer
-                plugin.getAbilityListener().startDiamondArmorProtectionTimer(player);
+                player.sendMessage("§bDiamond passive: Armor takes less durability damage when hit!");
                 break;
             case COAL:
-                // Coal effects are passive (water damage)
+                player.sendMessage("§8Coal passive: Takes damage from water and rain!");
                 break;
             case NETHERITE:
-                // Netherite effects are passive (fire immunity)
+                player.sendMessage("§4Netherite passive: Complete fire immunity!");
                 break;
             case REDSTONE:
-                // Redstone effects are passive
+                player.sendMessage("§4Redstone passive: 5x damage from bees and slimes, immune to dripstone!");
                 break;
             case LAPIS:
-                // Lapis effects are passive
+                player.sendMessage("§9Lapis passive: Free anvil enchanting and XP regeneration!");
                 break;
             case GOLD:
-                // Gold effects are passive
+                player.sendMessage("§eGold passive: Random durability on crafted items!");
                 break;
             case WOOD:
-                // Wood effects are passive
+                player.sendMessage("§eWood passive: Apples act like golden apples, axe efficiency capped at 3!");
                 break;
         }
     }
@@ -218,7 +213,6 @@ public class OreItemListener implements Listener {
     private void removeOreTypeEffectsFixed(Player player, OreType oreType) {
         switch (oreType) {
             case DIRT:
-                // FIXED: Remove all dirt effects completely
                 player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
                 resetArmorAttribute(player);
                 player.sendMessage("§7Dirt ore effects removed (mining fatigue cleared).");
@@ -229,7 +223,6 @@ public class OreItemListener implements Listener {
                 player.sendMessage("§7Iron ore effects removed.");
                 break;
             case AMETHYST:
-                // FIXED: Properly cancel the amethyst glowing
                 plugin.getAbilityManager().cancelAmethystGlowing(player);
                 player.sendMessage("§7Amethyst ore effects removed.");
                 break;
@@ -239,49 +232,37 @@ public class OreItemListener implements Listener {
                 player.sendMessage("§7Emerald ore effects removed.");
                 break;
             case STONE:
-                // FIXED: Remove stone-related effects properly
                 player.removePotionEffect(PotionEffectType.REGENERATION);
                 player.removePotionEffect(PotionEffectType.SLOWNESS);
                 player.sendMessage("§7Stone ore effects removed (regen/slowness cleared).");
                 break;
             case COPPER:
-                // FIXED: Stop copper armor durability timer
-                plugin.getAbilityListener().stopCopperArmorDurabilityTimer(player);
                 player.sendMessage("§7Copper ore effects removed.");
                 break;
             case DIAMOND:
-                // FIXED: Stop diamond armor protection timer
-                plugin.getAbilityListener().stopDiamondArmorProtectionTimer(player);
                 player.sendMessage("§7Diamond ore effects removed.");
                 break;
             case COAL:
-                // No persistent timers to cancel for coal
                 player.sendMessage("§7Coal ore effects removed.");
                 break;
             case NETHERITE:
-                // No persistent timers to cancel for netherite
                 player.sendMessage("§7Netherite ore effects removed.");
                 break;
             case REDSTONE:
-                // No persistent timers to cancel for redstone
                 player.sendMessage("§7Redstone ore effects removed.");
                 break;
             case LAPIS:
-                // No persistent timers to cancel for lapis
                 player.sendMessage("§7Lapis ore effects removed.");
                 break;
             case GOLD:
-                // No persistent timers to cancel for gold
                 player.sendMessage("§7Gold ore effects removed.");
                 break;
             case WOOD:
-                // No persistent timers to cancel for wood
                 player.sendMessage("§7Wood ore effects removed.");
                 break;
         }
     }
 
-    // FIXED: Complete dirt effects check implementation
     private void checkAndApplyDirtEffects(Player player) {
         ItemStack[] armor = player.getInventory().getArmorContents();
         boolean hasFullLeatherArmor = true;
@@ -296,24 +277,20 @@ public class OreItemListener implements Listener {
         AttributeInstance armorAttribute = player.getAttribute(Attribute.ARMOR);
 
         if (hasFullLeatherArmor) {
-            // Give diamond-level armor protection (20 armor points)
             if (armorAttribute != null) {
                 armorAttribute.setBaseValue(20);
                 player.sendMessage("§6Dirt blessing! Full leather armor provides diamond-level protection!");
             }
 
-            // Remove mining fatigue if present
             if (player.hasPotionEffect(PotionEffectType.MINING_FATIGUE)) {
                 player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
                 player.sendMessage("§aDirt blessing! Mining fatigue removed!");
             }
         } else {
-            // Reset armor to normal
             if (armorAttribute != null) {
                 armorAttribute.setBaseValue(0);
             }
 
-            // Apply mining fatigue
             if (!player.hasPotionEffect(PotionEffectType.MINING_FATIGUE)) {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, Integer.MAX_VALUE, 0, false, false));
                 player.sendMessage("§cDirt curse! Mining fatigue applied - you need full leather armor!");
@@ -321,7 +298,6 @@ public class OreItemListener implements Listener {
         }
     }
 
-    // FIXED: Handle emerald weakness check
     private void handleEmeraldWeakness(Player player) {
         int emeraldCount = 0;
         for (ItemStack item : player.getInventory().getContents()) {
@@ -394,7 +370,6 @@ public class OreItemListener implements Listener {
         }
     }
 
-    // Static method to create custom ore items (for use in recipes/commands)
     public static ItemStack createCustomOreItem(OreType oreType) {
         Material material = getBaseMaterial(oreType);
         ItemStack item = new ItemStack(material);
