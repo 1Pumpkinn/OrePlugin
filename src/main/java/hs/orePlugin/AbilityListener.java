@@ -41,6 +41,71 @@ public class AbilityListener implements Listener {
         this.plugin = plugin;
     }
 
+    // NEW EVENT HANDLER - Add this method to handle damage DEALT by players
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player)) return;
+
+        Player player = (Player) event.getDamager();
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        AbilityManager abilityManager = plugin.getAbilityManager();
+        OreType oreType = dataManager.getPlayerOre(player);
+
+        if (oreType == null) return;
+
+        switch (oreType) {
+            case WOOD:
+                if (abilityManager.hasActiveEffect(player)) {
+                    ItemStack weapon = player.getInventory().getItemInMainHand();
+                    if (weapon != null && weapon.getType().name().contains("AXE")) {
+                        double originalDamage = event.getDamage();
+                        double newDamage = originalDamage * 1.3;
+                        event.setDamage(newDamage);
+
+                        player.playSound(player.getLocation(), Sound.BLOCK_WOOD_HIT, 1.0f, 1.2f);
+                    }
+                }
+                break;
+
+            case DIAMOND:
+                if (abilityManager.hasActiveEffect(player)) {
+                    ItemStack weapon = player.getInventory().getItemInMainHand();
+                    if (weapon != null && weapon.getType() == Material.DIAMOND_SWORD) {
+                        double originalDamage = event.getDamage();
+                        double newDamage = originalDamage * 1.4;
+                        event.setDamage(newDamage);
+
+                        player.sendMessage("§bGleaming Power! " + String.format("%.1f", newDamage) + " damage!");
+                        player.playSound(player.getLocation(), Sound.BLOCK_GLASS_HIT, 1.0f, 1.5f);
+                    }
+                }
+                break;
+
+            case REDSTONE:
+                // Apply no-jump effect when hitting with redstone ability active
+                if (abilityManager.hasActiveEffect(player) && event.getEntity() instanceof Player) {
+                    Player target = (Player) event.getEntity();
+                    abilityManager.addNoJumpEffect(target.getUniqueId(), 200); // 10 seconds
+                    player.sendMessage("§4Sticky Slime applied! Target cannot jump for 10 seconds!");
+                    target.sendMessage("§cYou've been affected by Sticky Slime! Cannot jump for 10 seconds!");
+
+                    abilityManager.removeActiveEffect(player);
+                }
+                break;
+
+            case COPPER:
+                if (abilityManager.hasCopperLightningActive(player)) {
+                    event.getEntity().getWorld().strikeLightning(event.getEntity().getLocation());
+                    player.sendMessage("§3Channel The Clouds activated! Lightning struck your target!");
+                    if (event.getEntity() instanceof Player) {
+                        Player target = (Player) event.getEntity();
+                        target.sendMessage("§c⚡ You were struck by lightning!");
+                    }
+                }
+                break;
+        }
+    }
+
     @EventHandler(priority = EventPriority.HIGH)
     public void onEntityDamage(EntityDamageEvent event) {
         if (!(event.getEntity() instanceof Player)) return;
@@ -84,10 +149,20 @@ public class AbilityListener implements Listener {
                 if (event.getCause() == EntityDamageEvent.DamageCause.LIGHTNING) {
                     event.setCancelled(true);
                 }
+
+                if (abilityManager.hasCopperLightningActive(player) && event instanceof EntityDamageByEntityEvent) {
+                    EntityDamageByEntityEvent damageByEntity = (EntityDamageByEntityEvent) event;
+                    if (damageByEntity.getDamager() instanceof Player) {
+                        Player attacker = (Player) damageByEntity.getDamager();
+                        // Strike lightning at attacker's location
+                        attacker.getWorld().strikeLightning(attacker.getLocation());
+                        player.sendMessage("§3Channel The Clouds activated! Lightning struck your attacker!");
+                        attacker.sendMessage("§c⚡ You were struck by lightning!");
+                    }
+                }
                 break;
 
             case NETHERITE:
-                // PASSIVE: Permanent fire immunity - cancel all fire-related damage
                 if (event.getCause() == EntityDamageEvent.DamageCause.FIRE ||
                         event.getCause() == EntityDamageEvent.DamageCause.FIRE_TICK ||
                         event.getCause() == EntityDamageEvent.DamageCause.LAVA ||
