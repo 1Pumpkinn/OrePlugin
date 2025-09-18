@@ -51,7 +51,6 @@ public class PlayerListener implements Listener {
                 player.sendMessage("§eUse §6/ability §eto activate your abilities!");
             } else {
                 player.sendMessage("§eUse §6Shift + Right-click §eto activate abilities!");
-                player.sendMessage("§7Use §6/bedrock §efor Bedrock Edition support");
             }
         }
 
@@ -60,8 +59,19 @@ public class PlayerListener implements Listener {
             public void run() {
                 applyAllPassiveEffectsFixed(player);
                 plugin.getAbilityManager().restartPlayerTimers(player);
+
+                // Double-check emerald effect specifically
+                OreType oreType = dataManager.getPlayerOre(player);
+                if (oreType == OreType.EMERALD) {
+                    // Force apply Hero of the Village if not present
+                    if (!player.hasPotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE)) {
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9, false, false));
+                        player.sendMessage("§aEmerald passive: Hero of the Village 10 applied!");
+                        plugin.getLogger().info("Force-applied Hero of the Village to " + player.getName());
+                    }
+                }
             }
-        }.runTaskLater(plugin, 5); // Small delay to ensure player is fully loaded
+        }.runTaskLater(plugin, 20); // Increased delay to 1 second to ensure player is fully loaded
 
         plugin.getActionBarManager().startActionBar(player);
     }
@@ -402,6 +412,8 @@ public class PlayerListener implements Listener {
         OreType oreType = dataManager.getPlayerOre(player);
         if (oreType == null) return;
 
+        plugin.getLogger().info("Applying passive effects for " + player.getName() + " with ore type: " + oreType.name());
+
         switch (oreType) {
             case DIRT:
                 // Apply dirt effects immediately
@@ -430,23 +442,17 @@ public class PlayerListener implements Listener {
                 break;
 
             case EMERALD:
-                // FIXED: Apply Hero of the Village level 10 (effect level 9 = display level 10)
                 player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9, false, false));
-                player.sendMessage("§aEmerald passive: Hero of the Village 10 applied!");
-                // Initial emerald weakness check
                 handleEmeraldWeakness(player);
                 break;
 
             case COPPER:
-                player.sendMessage("§3Copper passive: Armor takes more durability damage when hit!");
                 break;
 
             case DIAMOND:
-                player.sendMessage("§bDiamond passive: Armor takes less durability damage when hit!");
                 break;
 
             case COAL:
-                player.sendMessage("§8Coal passive: Takes damage from water and rain!");
                 break;
 
             case REDSTONE:
@@ -454,6 +460,7 @@ public class PlayerListener implements Listener {
             case GOLD:
             case WOOD:
             case STONE:
+                plugin.getLogger().info("No passive effects for " + oreType.name());
                 break;
         }
     }

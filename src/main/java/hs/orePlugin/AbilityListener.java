@@ -74,8 +74,6 @@ public class AbilityListener implements Listener {
                         double originalDamage = event.getDamage();
                         double newDamage = originalDamage * 1.4;
                         event.setDamage(newDamage);
-
-                        player.sendMessage("§bGleaming Power! " + String.format("%.1f", newDamage) + " damage!");
                         player.playSound(player.getLocation(), Sound.BLOCK_GLASS_HIT, 1.0f, 1.5f);
                     }
                 }
@@ -334,18 +332,13 @@ public class AbilityListener implements Listener {
         if (isArmor(item.getType())) {
             switch (oreType) {
                 case COPPER:
-                    int copperDamage = (int) Math.ceil(event.getDamage() * 1.5);
+                    int copperDamage = (int) Math.ceil(event.getDamage() * 2);
                     event.setDamage(copperDamage);
-                    player.sendMessage("§cCopper downside! Armor takes extra durability damage!");
                     break;
 
                 case DIAMOND:
-                    int diamondDamage = (int) Math.ceil(event.getDamage() / 1.5);
-                    if (event.getDamage() > 1 && diamondDamage < 1) {
-                        diamondDamage = 1;
-                    }
+                    int diamondDamage = (int) Math.ceil(event.getDamage() / 2);
                     event.setDamage(diamondDamage);
-                    player.sendMessage("§bDiamond upside! Armor takes less durability damage!");
                     break;
             }
         }
@@ -507,13 +500,15 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // FIXED: Removed armor timer methods, simplified effect application
     public void applyAllOreTypeEffectsFixed(Player player, OreType oreType) {
+        plugin.getLogger().info("Applying all ore effects for " + player.getName() + " with ore type: " + oreType.name());
+
         switch (oreType) {
             case DIRT:
                 checkAndApplyDirtArmor(player);
                 checkAndApplyDirtMiningFatigue(player);
                 break;
+
             case IRON:
                 AttributeInstance armorAttribute = player.getAttribute(Attribute.ARMOR);
                 if (armorAttribute != null) {
@@ -523,20 +518,54 @@ public class AbilityListener implements Listener {
                 }
                 plugin.getAbilityManager().startIronDropTimer(player);
                 break;
+
             case AMETHYST:
                 plugin.getAbilityManager().startAmethystGlowing(player);
                 break;
+
             case EMERALD:
+                // FIXED: Apply Hero of the Village level 10 here as well
                 player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9, false, false));
                 player.sendMessage("§aEmerald blessing: Hero of the Village 10 applied!");
+                plugin.getLogger().info("Applied Hero of the Village 10 to " + player.getName() + " via ore crafting");
                 break;
+
+            case NETHERITE:
+                player.sendMessage("§4Netherite passive: Complete fire immunity!");
+                break;
+
             case COPPER:
                 // No timer needed - armor durability handled in damage events
                 player.sendMessage("§3Copper passive: Armor takes more durability damage when hit!");
                 break;
+
             case DIAMOND:
                 // No timer needed - armor durability handled in damage events
                 player.sendMessage("§bDiamond passive: Armor takes less durability damage when hit!");
+                break;
+
+            case COAL:
+                player.sendMessage("§8Coal passive: Takes damage from water and rain!");
+                break;
+
+            case WOOD:
+                player.sendMessage("§6Wood passive: Axes with efficiency limited to level 3!");
+                break;
+
+            case REDSTONE:
+                player.sendMessage("§4Redstone passive: Weakness to bees and slimes, immunity to dripstone!");
+                break;
+
+            case LAPIS:
+                player.sendMessage("§9Lapis passive: Free anvil enchanting!");
+                break;
+
+            case GOLD:
+                player.sendMessage("§eGold passive: Crafted items have random durability!");
+                break;
+
+            case STONE:
+                player.sendMessage("§7Stone passive: Regeneration while standing on stone!");
                 break;
         }
     }
