@@ -7,6 +7,7 @@ import org.bukkit.event.player.*;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.Material;
 import org.bukkit.potion.PotionEffect;
@@ -34,6 +35,53 @@ public class PlayerListener implements Listener {
 
     public PlayerListener(OreAbilitiesPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    // NEW: Handle player death - reset to starter ore
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+
+        // Only reset if they have a crafted ore (not already a starter ore)
+        if (dataManager.hasCraftedOre(player)) {
+            // Small delay to ensure death processing is complete
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    dataManager.resetToStarterOre(player);
+
+                    // Clear cooldown on death
+                    dataManager.clearCooldown(player);
+
+                    // Update action bar
+                    if (plugin.getActionBarManager() != null) {
+                        plugin.getActionBarManager().updateCooldownDisplay(player);
+                    }
+                }
+            }.runTaskLater(plugin, 5L); // 0.25 second delay
+        }
+    }
+
+    @EventHandler
+    public void onPlayerRespawn(PlayerRespawnEvent event) {
+        Player player = event.getPlayer();
+
+        // Apply passive effects after respawn with delay to ensure player is fully loaded
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (player.isOnline()) {
+                    applyAllPassiveEffectsFixed(player);
+                    plugin.getAbilityManager().restartPlayerTimers(player);
+
+                    // Ensure action bar is running
+                    if (plugin.getActionBarManager() != null) {
+                        plugin.getActionBarManager().startActionBar(player);
+                    }
+                }
+            }
+        }.runTaskLater(plugin, 20L); // 1 second delay
     }
 
     @EventHandler
@@ -82,7 +130,6 @@ public class PlayerListener implements Listener {
         plugin.getActionBarManager().stopActionBar(player);
         plugin.getAbilityManager().cleanup(player);
         plugin.getAbilityListener().cleanup(player);
-
 
         emeraldWeaknessCheck.remove(player.getUniqueId());
         dirtArmorCheck.remove(player.getUniqueId());

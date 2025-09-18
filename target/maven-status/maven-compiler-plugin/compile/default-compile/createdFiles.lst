@@ -6,6 +6,7 @@ hs\orePlugin\RecipeManager.class
 hs\orePlugin\AbilityManager$6.class
 hs\orePlugin\AbilityListener$4.class
 hs\orePlugin\AbilityManager$3.class
+hs\orePlugin\PlayerListener$5.class
 hs\orePlugin\OreAbilitiesPlugin$1.class
 hs\orePlugin\OreType.class
 hs\orePlugin\AbilityManager$4.class
@@ -44,5 +45,6 @@ hs\orePlugin\OreItemListener$1.class
 hs\orePlugin\PlayerDataManager.class
 hs\orePlugin\TrustCommand.class
 hs\orePlugin\TrustManager.class
+hs\orePlugin\PlayerListener$6.class
 hs\orePlugin\AbilityManager$2.class
 hs\orePlugin\RecipeGUI$RecipeData.class
