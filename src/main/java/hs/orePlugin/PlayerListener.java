@@ -6,6 +6,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.*;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.Action;
 import org.bukkit.entity.Player;
 import org.bukkit.Material;
 import org.bukkit.potion.PotionEffect;
@@ -73,6 +74,9 @@ public class PlayerListener implements Listener {
         plugin.getAbilityManager().cleanup(player);
         plugin.getAbilityListener().cleanup(player);
 
+        // Clean up Netherite tracking (no tasks to cancel)
+        // Fire resistance is handled directly in damage events
+
         emeraldWeaknessCheck.remove(player.getUniqueId());
         dirtArmorCheck.remove(player.getUniqueId());
         lastMoveCheck.remove(player.getUniqueId());
@@ -122,11 +126,53 @@ public class PlayerListener implements Listener {
                 }
                 plugin.getLogger().info("Cleaned up iron effects for " + player.getName());
                 break;
+            case NETHERITE:
+                // Fire resistance is handled directly in AbilityListener damage events
+                plugin.getLogger().info("Cleaned up netherite effects for " + player.getName());
+                break;
             default:
                 plugin.getLogger().info("No specific cleanup needed for " + oreType.name());
                 break;
         }
         player.sendMessage("§7Cleaned up " + oreType.getDisplayName() + " ore tracking data.");
+    }
+
+    // NEW: Handle shift+left-click interaction for Netherite ancient debris conversion
+    @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        if (event.getAction() != Action.LEFT_CLICK_AIR && event.getAction() != Action.LEFT_CLICK_BLOCK) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        if (!player.isSneaking()) {
+            return;
+        }
+
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        OreType oreType = dataManager.getPlayerOre(player);
+
+        if (oreType != OreType.NETHERITE) {
+            return;
+        }
+
+        ItemStack handItem = player.getInventory().getItemInMainHand();
+        if (handItem == null || handItem.getType() != Material.ANCIENT_DEBRIS) {
+            return;
+        }
+
+        // Convert Ancient Debris to Netherite Ingots
+        int amount = handItem.getAmount();
+        ItemStack netheriteIngots = new ItemStack(Material.NETHERITE_INGOT, amount);
+
+        player.getInventory().setItemInMainHand(netheriteIngots);
+        player.sendMessage("§4Converted " + amount + " Ancient Debris to Netherite Ingots!");
+        player.playSound(player.getLocation(), Sound.UI_STONECUTTER_TAKE_RESULT, 1.0f, 0.5f);
+
+        // Prevent block breaking if clicking on a block
+        if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
+            event.setCancelled(true);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -291,13 +337,8 @@ public class PlayerListener implements Listener {
             }
         }
 
-        // Netherite upside - ancient debris turns into netherite ingots
-        if (oreType == OreType.NETHERITE && blockType == Material.ANCIENT_DEBRIS) {
-            event.setDropItems(false);
-            ItemStack netheriteIngot = new ItemStack(Material.NETHERITE_INGOT, 1);
-            event.getBlock().getWorld().dropItemNaturally(event.getBlock().getLocation(), netheriteIngot);
-            player.playSound(player.getLocation(), Sound.BLOCK_ANCIENT_DEBRIS_BREAK, 1.0f, 0.5f);
-        }
+        // REMOVED: Netherite automatic ancient debris conversion on mining
+        // Now handled by shift+left-click interaction instead
     }
 
     // FIXED: Handle armor changes for dirt ore
@@ -347,6 +388,9 @@ public class PlayerListener implements Listener {
         }
     }
 
+    // REMOVED: Fire resistance is now handled directly in AbilityListener damage events
+    // This ensures 100% reliable fire immunity without potion effect timing issues
+
     // FIXED: Apply ALL passive effects immediately and correctly with proper method calls
     private void applyAllPassiveEffectsFixed(Player player) {
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
@@ -370,8 +414,8 @@ public class PlayerListener implements Listener {
                 break;
 
             case NETHERITE:
-                // No fire damage
-                player.setFireTicks(0);
+                // Fire resistance is handled directly in AbilityListener damage events
+                // No setup needed - it's completely passive
                 break;
 
             case AMETHYST:

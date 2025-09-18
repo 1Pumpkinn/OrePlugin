@@ -43,90 +43,7 @@ public class AbilityListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
-    public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Player)) return;
-
-        Player attacker = (Player) event.getDamager();
-        PlayerDataManager dataManager = plugin.getPlayerDataManager();
-        TrustManager trustManager = plugin.getTrustManager();
-        AbilityManager abilityManager = plugin.getAbilityManager();
-        OreType oreType = dataManager.getPlayerOre(attacker);
-
-        if (oreType == null) return;
-
-        if (event.getEntity() instanceof Player) {
-            Player target = (Player) event.getEntity();
-            if (trustManager.isTrusted(attacker, target)) {
-                event.setCancelled(true);
-                return;
-            }
-        }
-
-        switch (oreType) {
-            case WOOD:
-                if (abilityManager.hasActiveEffect(attacker)) {
-                    ItemStack weapon = attacker.getInventory().getItemInMainHand();
-                    if (weapon != null && weapon.getType().name().contains("AXE")) {
-                        double newDamage = event.getDamage() * 1.5;
-                        event.setDamage(newDamage);
-                        attacker.playSound(attacker.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 1.0f);
-                    }
-                }
-                break;
-
-            case COPPER:
-                if (abilityManager.hasActiveEffect(attacker) && event.getEntity() instanceof LivingEntity) {
-                    Location strikeLocation = event.getEntity().getLocation();
-                    event.getEntity().getWorld().strikeLightning(strikeLocation);
-
-                    if (attacker.getLocation().distance(strikeLocation) < 10) {
-                        new BukkitRunnable() {
-                            @Override
-                            public void run() {
-                                attacker.setFireTicks(0);
-                                attacker.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 60, 0));
-                            }
-                        }.runTaskLater(plugin, 1);
-                    }
-                }
-                break;
-
-            case DIAMOND:
-                if (abilityManager.hasActiveEffect(attacker)) {
-                    ItemStack weapon = attacker.getInventory().getItemInMainHand();
-                    if (weapon != null && weapon.getType() == Material.DIAMOND_SWORD) {
-                        event.setDamage(event.getDamage() * 1.4);
-                        attacker.playSound(attacker.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 2.0f);
-                    }
-                }
-                break;
-
-            case REDSTONE:
-                if (abilityManager.hasActiveEffect(attacker) && event.getEntity() instanceof Player) {
-                    Player target = (Player) event.getEntity();
-                    plugin.getAbilityManager().addNoJumpEffect(target.getUniqueId(), 200);
-                    target.sendMessage("§4Sticky Slime! You cannot jump for 10 seconds!");
-                    attacker.sendMessage("§cSticky Slime effect applied to " + target.getName() + "!");
-                    plugin.getAbilityManager().removeActiveEffect(attacker);
-                }
-                break;
-
-            case AMETHYST:
-                ItemStack offhand = attacker.getInventory().getItemInOffHand();
-                if (offhand != null && offhand.getType() == Material.AMETHYST_SHARD) {
-                    event.setDamage(event.getDamage() * 1.1);
-                }
-                break;
-
-            case COAL:
-                if (attacker.getFireTicks() > 0) {
-                    event.setDamage(event.getDamage() + 1);
-                    attacker.playSound(attacker.getLocation(), Sound.BLOCK_FIRE_AMBIENT, 1.0f, 1.0f);
-                }
-                break;
-        }
-    }
+    // Only showing the relevant method that needs to be updated in AbilityListener.java
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onEntityDamage(EntityDamageEvent event) {
@@ -174,10 +91,14 @@ public class AbilityListener implements Listener {
                 break;
 
             case NETHERITE:
+                // PASSIVE: Permanent fire immunity - cancel all fire-related damage
                 if (event.getCause() == EntityDamageEvent.DamageCause.FIRE ||
                         event.getCause() == EntityDamageEvent.DamageCause.FIRE_TICK ||
-                        event.getCause() == EntityDamageEvent.DamageCause.LAVA) {
+                        event.getCause() == EntityDamageEvent.DamageCause.LAVA ||
+                        event.getCause() == EntityDamageEvent.DamageCause.HOT_FLOOR) {
                     event.setCancelled(true);
+                    // Also clear fire ticks to prevent visual fire
+                    player.setFireTicks(0);
                 }
                 break;
         }
