@@ -337,8 +337,12 @@ public class AbilityListener implements Listener {
                     break;
 
                 case DIAMOND:
-                    int diamondDamage = (int) Math.ceil(event.getDamage() / 2);
-                    event.setDamage(diamondDamage);
+                    if (event.getDamage() > 1) {
+                        int reducedDurabilityDamage = (int) Math.ceil(event.getDamage() / 2);
+                        event.setDamage(reducedDurabilityDamage);
+                    } else {
+                        event.setDamage(1);
+                    }
                     break;
             }
         }

@@ -56,9 +56,9 @@ public class RecipeGUI implements Listener {
         // Iron recipe
         recipes.put(OreType.IRON, new RecipeData(
                 new Material[][]{
-                        {Material.IRON_HELMET, Material.IRON_BLOCK, Material.IRON_CHESTPLATE},
+                        {Material.IRON_BLOCK, Material.ANVIL, Material.IRON_BLOCK},
                         {Material.IRON_ORE, Material.IRON_INGOT, Material.DEEPSLATE_IRON_ORE},
-                        {Material.IRON_LEGGINGS, Material.RAW_IRON_BLOCK, Material.IRON_BOOTS}
+                        {Material.IRON_BLOCK, Material.RAW_IRON_BLOCK, Material.IRON_BLOCK}
                 },
                 "§fIron §7Ore Recipe",
                 Arrays.asList("§7Craft this to unlock §fIron §7abilities!", "§6Ability: §eBucket Roulette", "§7Get random bucket + permanent +2 armor")

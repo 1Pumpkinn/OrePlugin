@@ -561,6 +561,7 @@ public class OreAbilitiesCommand implements CommandExecutor {
         player.sendMessage("  §e/trustlist §7- List trusted players");
         player.sendMessage("");
 
+
         player.sendMessage("§6How to Play:");
         AbilityActivationManager activationManager = plugin.getActivationManager();
         if (activationManager.isBedrockMode(player)) {
