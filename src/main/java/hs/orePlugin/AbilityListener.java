@@ -57,7 +57,7 @@ public class AbilityListener implements Listener {
             case WOOD:
                 if (abilityManager.hasActiveEffect(player)) {
                     ItemStack weapon = player.getInventory().getItemInMainHand();
-                    if (weapon != null && weapon.getType().name().contains("AXE")) {
+                    if (weapon != null && isAxe(weapon.getType())) {
                         double originalDamage = event.getDamage();
                         double newDamage = originalDamage * 1.3;
                         event.setDamage(newDamage);
@@ -88,6 +88,16 @@ public class AbilityListener implements Listener {
                     target.sendMessage("§cYou've been affected by Sticky Slime! Cannot jump for 10 seconds!");
 
                     abilityManager.removeActiveEffect(player);
+                }
+                break;
+
+            case AMETHYST:
+                // Check if player has amethyst shard in offhand for damage boost
+                ItemStack offhandItem = player.getInventory().getItemInOffHand();
+                if (offhandItem != null && offhandItem.getType() == Material.AMETHYST_SHARD) {
+                    double originalDamage = event.getDamage();
+                    double newDamage = originalDamage * 1.1; // 1.1x damage multiplier
+                    event.setDamage(newDamage);
                 }
                 break;
 
@@ -199,23 +209,6 @@ public class AbilityListener implements Listener {
     }
 
     @EventHandler
-    public void onPlayerItemHeld(PlayerItemHeldEvent event) {
-        Player player = event.getPlayer();
-        PlayerDataManager dataManager = plugin.getPlayerDataManager();
-        OreType oreType = dataManager.getPlayerOre(player);
-
-        if (oreType == OreType.COPPER) {
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    ItemStack item = player.getInventory().getItem(event.getNewSlot());
-                    enchantTridentWithChanneling(player, item);
-                }
-            }.runTaskLater(plugin, 1);
-        }
-    }
-
-    @EventHandler
     public void onEntityPickupItem(EntityPickupItemEvent event) {
         if (!(event.getEntity() instanceof Player)) return;
         Player player = (Player) event.getEntity();
@@ -231,10 +224,9 @@ public class AbilityListener implements Listener {
             }.runTaskLater(plugin, 2);
         }
 
-        // Prevent wood players from picking up efficiency > 3 axes
         if (oreType == OreType.WOOD) {
             ItemStack item = event.getItem().getItemStack();
-            if (item.getType().name().contains("AXE")) {
+            if (isAxe(item.getType())) {
                 ItemMeta meta = item.getItemMeta();
                 if (meta != null && meta.getEnchantLevel(Enchantment.EFFICIENCY) > 3) {
                     event.setCancelled(true);
@@ -253,7 +245,8 @@ public class AbilityListener implements Listener {
         OreType oreType = dataManager.getPlayerOre(player);
         AbilityManager abilityManager = plugin.getAbilityManager();
 
-        if (oreType == OreType.WOOD && event.getItem().getType().name().contains("AXE")) {
+        // FIXED: Only restrict AXES for wood ore, allow other tools to have any efficiency level
+        if (oreType == OreType.WOOD && isAxe(event.getItem().getType())) {
             if (event.getEnchantsToAdd().containsKey(Enchantment.EFFICIENCY)) {
                 int currentLevel = event.getItem().getEnchantmentLevel(Enchantment.EFFICIENCY);
                 int newLevel = event.getEnchantsToAdd().get(Enchantment.EFFICIENCY);
@@ -287,7 +280,8 @@ public class AbilityListener implements Listener {
 
         OreType oreType = plugin.getPlayerDataManager().getPlayerOre(player);
 
-        if (oreType == OreType.WOOD && event.getResult() != null && event.getResult().getType().name().contains("AXE")) {
+        // FIXED: Only restrict AXES for wood ore
+        if (oreType == OreType.WOOD && event.getResult() != null && isAxe(event.getResult().getType())) {
             ItemMeta meta = event.getResult().getItemMeta();
             if (meta != null && meta.getEnchantLevel(Enchantment.EFFICIENCY) > 3) {
                 event.setResult(null);
@@ -359,6 +353,16 @@ public class AbilityListener implements Listener {
         String name = material.name();
         return name.contains("_HELMET") || name.contains("_CHESTPLATE") ||
                 name.contains("_LEGGINGS") || name.contains("_BOOTS");
+    }
+
+    // FIXED: More precise axe detection helper method
+    private boolean isAxe(Material material) {
+        return material == Material.WOODEN_AXE ||
+                material == Material.STONE_AXE ||
+                material == Material.IRON_AXE ||
+                material == Material.GOLDEN_AXE ||
+                material == Material.DIAMOND_AXE ||
+                material == Material.NETHERITE_AXE;
     }
 
     private void enchantTridentWithChanneling(Player player, ItemStack item) {
@@ -477,6 +481,7 @@ public class AbilityListener implements Listener {
         }
     }
 
+
     private void applyGoldCurse(Player player, Material itemType) {
         ItemStack[] contents = player.getInventory().getContents();
         for (int i = 0; i < contents.length; i++) {
@@ -553,7 +558,8 @@ public class AbilityListener implements Listener {
                 break;
 
             case WOOD:
-                player.sendMessage("§6Wood passive: Axes with efficiency limited to level 3!");
+                // FIXED: More specific message about axes only
+                player.sendMessage("§6Wood passive: Axes (only axes) with efficiency limited to level 3! Other tools have no restrictions.");
                 break;
 
             case REDSTONE:
@@ -775,38 +781,6 @@ public class AbilityListener implements Listener {
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
         OreType oreType = dataManager.getPlayerOre(player);
 
-        // Check for wood ore axe efficiency restriction
-        if (oreType == OreType.WOOD) {
-            ItemStack clickedItem = event.getCurrentItem();
-            ItemStack cursorItem = event.getCursor();
-
-            // Check item being moved into inventory
-            if (clickedItem != null && isHighEfficiencyAxe(clickedItem) && isMovingToPlayerInventory(event)) {
-                event.setCancelled(true);
-                player.sendMessage("§cWood ore limitation! Cannot move axes with Efficiency above 3 to your inventory!");
-                return;
-            }
-
-            // Check item on cursor being placed
-            if (cursorItem != null && isHighEfficiencyAxe(cursorItem) && isMovingToPlayerInventory(event)) {
-                event.setCancelled(true);
-                player.sendMessage("§cWood ore limitation! Cannot place axes with Efficiency above 3 in your inventory!");
-                return;
-            }
-
-            // Handle shift-click transfers
-            if (event.isShiftClick() && clickedItem != null && isHighEfficiencyAxe(clickedItem)) {
-                // Check if shift-clicking from a container to player inventory
-                if (event.getInventory() != player.getInventory() &&
-                        event.getSlot() < event.getInventory().getSize()) {
-                    event.setCancelled(true);
-                    player.sendMessage("§cWood ore limitation! Cannot shift-click axes with Efficiency above 3 to your inventory!");
-                    return;
-                }
-            }
-        }
-
-        // Existing armor slot change detection for dirt ore
         if (oreType == OreType.DIRT && event.getSlotType() == InventoryType.SlotType.ARMOR) {
             new BukkitRunnable() {
                 @Override
@@ -818,9 +792,9 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // Helper method to check if an axe has efficiency > 3
+    // Keep these helper methods for other event handlers that still need them
     private boolean isHighEfficiencyAxe(ItemStack item) {
-        if (item == null || !item.getType().name().contains("AXE")) {
+        if (item == null || !isAxe(item.getType())) {
             return false;
         }
 
@@ -833,14 +807,11 @@ public class AbilityListener implements Listener {
         return false;
     }
 
-    // Helper method to check if item is being moved to player inventory
     private boolean isMovingToPlayerInventory(InventoryClickEvent event) {
-        // Check if clicking in player inventory area
         if (event.getClickedInventory() == event.getWhoClicked().getInventory()) {
             return true;
         }
 
-        // Check if it's a shift-click that would move to player inventory
         if (event.isShiftClick() && event.getClickedInventory() != event.getWhoClicked().getInventory()) {
             return true;
         }
@@ -854,21 +825,6 @@ public class AbilityListener implements Listener {
 
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
         OreType oreType = dataManager.getPlayerOre(player);
-
-        if (oreType == OreType.WOOD) {
-            ItemStack draggedItem = event.getOldCursor();
-
-            if (isHighEfficiencyAxe(draggedItem)) {
-                // Check if any dragged slots belong to player inventory
-                for (int slot : event.getRawSlots()) {
-                    if (slot < player.getInventory().getSize()) {
-                        event.setCancelled(true);
-                        player.sendMessage("§cWood ore limitation! Cannot drag axes with Efficiency above 3 into your inventory!");
-                        return;
-                    }
-                }
-            }
-        }
     }
 
     @EventHandler
@@ -888,6 +844,35 @@ public class AbilityListener implements Listener {
         }
     }
 
+    @EventHandler
+    public void onPlayerItemHeld(PlayerItemHeldEvent event) {
+        Player player = event.getPlayer();
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        OreType oreType = dataManager.getPlayerOre(player);
+
+        // Existing copper trident logic
+        if (oreType == OreType.COPPER) {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    ItemStack item = player.getInventory().getItem(event.getNewSlot());
+                    enchantTridentWithChanneling(player, item);
+                }
+            }.runTaskLater(plugin, 1);
+        }
+
+        // NEW: Wood ore axe efficiency reduction
+        if (oreType == OreType.WOOD) {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    ItemStack item = player.getInventory().getItem(event.getNewSlot());
+                    reduceAxeEfficiencyIfNeeded(player, item);
+                }
+            }.runTaskLater(plugin, 1);
+        }
+    }
+
     private boolean isToolWeaponOrArmor(Material material) {
         String name = material.name();
         return name.contains("_SWORD") || name.contains("_AXE") ||
@@ -897,9 +882,32 @@ public class AbilityListener implements Listener {
                 name.contains("_BOOTS");
     }
 
+    private void reduceAxeEfficiencyIfNeeded(Player player, ItemStack item) {
+        if (item == null || !isAxe(item.getType())) {
+            return;
+        }
+
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return;
+        }
+
+        int currentEfficiency = meta.getEnchantLevel(Enchantment.EFFICIENCY);
+        if (currentEfficiency > 3) {
+
+            meta.removeEnchant(Enchantment.EFFICIENCY);
+            meta.addEnchant(Enchantment.EFFICIENCY, 3, true);
+            item.setItemMeta(meta);
+
+            player.sendMessage("§6Wood ore limitation! Axe efficiency reduced from " + currentEfficiency + " to 3!");
+            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 0.5f, 1.2f);
+        }
+    }
+
     public void cleanup(Player player) {
         lastWaterDamageTime.remove(player.getUniqueId());
         lastRainDamageTime.remove(player.getUniqueId());
         stopCoalRainTimer(player);
     }
 }
+

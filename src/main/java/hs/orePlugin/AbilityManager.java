@@ -138,10 +138,10 @@ public class AbilityManager {
         loc.add(0, 1, 0);
 
         if (below == Material.GRASS_BLOCK || below == Material.DIRT) {
-            // Fixed: Using level 0 for +2 hearts (1 level = 2 hearts), 600 ticks = 30 seconds
-            player.addPotionEffect(new PotionEffect(PotionEffectType.HEALTH_BOOST, 600, 0));
+            // Fixed: Using level 0 for +2 hearts (1 level = 2 hearts)
+            player.addPotionEffect(new PotionEffect(PotionEffectType.HEALTH_BOOST, 300, 0));
 
-            player.sendMessage("§aEarth's Blessing activated! +2 hearts for 30 seconds!");
+            player.sendMessage("§aEarth's Blessing activated! +2 hearts for 15 seconds!");
             player.playSound(player.getLocation(), Sound.BLOCK_GRASS_BREAK, 1.0f, 1.0f);
         } else {
             player.sendMessage("§cYou must be standing on grass or dirt!");
