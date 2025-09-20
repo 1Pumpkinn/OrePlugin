@@ -96,7 +96,7 @@ public class AbilityListener implements Listener {
                 ItemStack offhandItem = player.getInventory().getItemInOffHand();
                 if (offhandItem != null && offhandItem.getType() == Material.AMETHYST_SHARD) {
                     double originalDamage = event.getDamage();
-                    double newDamage = originalDamage * 1.1; // 1.1x damage multiplier
+                    double newDamage = originalDamage + 1.1;
                     event.setDamage(newDamage);
                 }
                 break;
