@@ -127,6 +127,9 @@ public class PlayerListener implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        OreType oreType = dataManager.getPlayerOre(player);
+
         plugin.getActionBarManager().stopActionBar(player);
         plugin.getAbilityManager().cleanup(player);
         plugin.getAbilityListener().cleanup(player);
@@ -135,7 +138,86 @@ public class PlayerListener implements Listener {
         dirtArmorCheck.remove(player.getUniqueId());
         lastMoveCheck.remove(player.getUniqueId());
         wasOnStone.remove(player.getUniqueId());
+
+        if (oreType != null) {
+            cleanupAllOreEffects(player, oreType);
+        }
     }
+
+    private void cleanupAllOreEffects(Player player, OreType oreType) {
+        plugin.getLogger().info("Cleaning up ore effects for " + player.getName() + " with ore type: " + oreType.name());
+        switch (oreType) {
+            case DIRT:
+                player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
+                // Reset armor attribute to 0 (default)
+                AttributeInstance dirtArmor = player.getAttribute(Attribute.ARMOR);
+                if (dirtArmor != null) {
+                    dirtArmor.setBaseValue(0);
+                }
+                break;
+
+            case STONE:
+                // FIXED: Always remove stone effects on quit, regardless of current state
+                player.removePotionEffect(PotionEffectType.REGENERATION);
+                player.removePotionEffect(PotionEffectType.SLOWNESS);
+                break;
+
+            case IRON:
+                // Reset armor attribute (remove iron bonus)
+                AttributeInstance ironArmor = player.getAttribute(Attribute.ARMOR);
+                if (ironArmor != null) {
+                    double currentBase = ironArmor.getBaseValue();
+                    double newValue = Math.max(0.0, currentBase - 2.0);
+                    ironArmor.setBaseValue(newValue);
+                }
+                break;
+
+            case EMERALD:
+                player.removePotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE);
+                player.removePotionEffect(PotionEffectType.WEAKNESS);
+                break;
+
+            case AMETHYST:
+                player.removePotionEffect(PotionEffectType.GLOWING);
+                // Clean up scoreboard team
+                try {
+                    org.bukkit.scoreboard.Scoreboard scoreboard = player.getServer().getScoreboardManager().getMainScoreboard();
+                    org.bukkit.scoreboard.Team amethystTeam = scoreboard.getTeam("amethyst");
+                    if (amethystTeam != null && amethystTeam.hasEntry(player.getName())) {
+                        amethystTeam.removeEntry(player.getName());
+                    }
+                } catch (Exception e) {
+                }
+                break;
+
+            case GOLD:
+                // Clean any potential lingering haste/speed effects from abilities
+                player.removePotionEffect(PotionEffectType.HASTE);
+                player.removePotionEffect(PotionEffectType.SPEED);
+                player.removePotionEffect(PotionEffectType.ABSORPTION);
+                break;
+
+            case LAPIS:
+                // Clean any lingering regeneration from lapis abilities
+                player.removePotionEffect(PotionEffectType.REGENERATION);
+                break;
+
+            case WOOD:
+                // Clean any lingering absorption from apple consumption
+                player.removePotionEffect(PotionEffectType.ABSORPTION);
+                break;
+
+            case REDSTONE:
+                break;
+
+            case COPPER:
+            case DIAMOND:
+            case COAL:
+            case NETHERITE:
+                break;
+        }
+    }
+
 
     public void cleanupPlayerEffects(Player player, OreType oreType) {
         UUID uuid = player.getUniqueId();
