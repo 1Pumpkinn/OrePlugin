@@ -311,7 +311,6 @@ public class AbilityListener implements Listener {
         }
     }
 
-    // FIXED: Armor durability is now handled when damage is taken, not on timers
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerItemDamage(PlayerItemDamageEvent event) {
         Player player = event.getPlayer();
@@ -337,13 +336,6 @@ public class AbilityListener implements Listener {
                     } else {
                         event.setDamage(1);
                     }
-                    break;
-            }
-        }
-
-        if (oreType == OreType.DIRT) {
-            if (item != null && item.getType().name().contains("LEATHER")) {
-                event.setCancelled(true);
             }
         }
     }
