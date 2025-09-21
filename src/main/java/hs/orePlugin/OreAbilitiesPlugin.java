@@ -72,14 +72,18 @@ public class OreAbilitiesPlugin extends JavaPlugin {
         getCommand("bedrock").setExecutor(mainCommand);
         getCommand("orecd").setExecutor(mainCommand);
 
-        // FIXED: Register recipes commands properly
+        // Register recipes commands
         getCommand("recipes").setExecutor(mainCommand);
         getCommand("recipe").setExecutor(mainCommand);
         getCommand("orerecipes").setExecutor(mainCommand);
 
+        // NEW: Register reroll command
+        getCommand("reroll").setExecutor(mainCommand);
+
         getLogger().info("Ore Abilities Plugin has been enabled!");
         getLogger().info("Features: Dirt leather armor is truly unbreakable, LAPIS can enchant with 0 levels!");
         getLogger().info("Recipe commands registered: /recipes, /recipe, /orerecipes");
+        getLogger().info("Admin commands: /reroll <player> - Reroll starter ore");
     }
 
     @Override

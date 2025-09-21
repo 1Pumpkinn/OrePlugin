@@ -533,49 +533,28 @@ public class AbilityListener implements Listener {
                 break;
 
             case EMERALD:
-                // FIXED: Apply Hero of the Village level 10 here as well
                 player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9, false, false));
-                player.sendMessage("§aEmerald blessing: Hero of the Village 10 applied!");
+                player.sendMessage("§aEmerald Upside: Hero of the Village 10 applied!");
                 plugin.getLogger().info("Applied Hero of the Village 10 to " + player.getName() + " via ore crafting");
                 break;
 
             case NETHERITE:
-                player.sendMessage("§4Netherite passive: Complete fire immunity!");
                 break;
-
             case COPPER:
-                // No timer needed - armor durability handled in damage events
-                player.sendMessage("§3Copper passive: Armor takes more durability damage when hit!");
                 break;
-
             case DIAMOND:
-                // No timer needed - armor durability handled in damage events
-                player.sendMessage("§bDiamond passive: Armor takes less durability damage when hit!");
                 break;
-
             case COAL:
-                player.sendMessage("§8Coal passive: Takes damage from water and rain!");
                 break;
-
             case WOOD:
-                // FIXED: More specific message about axes only
-                player.sendMessage("§6Wood passive: Axes (only axes) with efficiency limited to level 3! Other tools have no restrictions.");
                 break;
-
             case REDSTONE:
-                player.sendMessage("§4Redstone passive: Weakness to bees and slimes, immunity to dripstone!");
                 break;
-
             case LAPIS:
-                player.sendMessage("§9Lapis passive: Free anvil enchanting!");
                 break;
-
             case GOLD:
-                player.sendMessage("§eGold passive: Crafted items have random durability!");
                 break;
-
             case STONE:
-                player.sendMessage("§7Stone passive: Regeneration while standing on stone!");
                 break;
         }
     }
@@ -671,7 +650,6 @@ public class AbilityListener implements Listener {
                     if (piece != null && piece.getType().name().contains("LEATHER")) {
                         ItemMeta meta = piece.getItemMeta();
                         if (meta != null) {
-                            meta.setUnbreakable(true);
                             piece.setItemMeta(meta);
                         }
                     }

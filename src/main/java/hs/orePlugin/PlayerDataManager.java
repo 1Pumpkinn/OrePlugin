@@ -10,7 +10,7 @@ public class PlayerDataManager {
 
     private final OreAbilitiesPlugin plugin;
     private final Map<UUID, OreType> playerOres = new HashMap<>();
-    private final Map<UUID, OreType> starterOres = new HashMap<>(); // NEW: Store starter ores
+    private final Map<UUID, OreType> starterOres = new HashMap<>(); // Store starter ores
     private final Map<UUID, Long> cooldowns = new HashMap<>();
 
     public PlayerDataManager(OreAbilitiesPlugin plugin) {
@@ -37,7 +37,7 @@ public class PlayerDataManager {
                         }
                     }
 
-                    // NEW: Load starter ore
+                    // Load starter ore
                     if (starterOreName != null) {
                         try {
                             OreType starterOre = OreType.valueOf(starterOreName.toUpperCase());
@@ -67,14 +67,14 @@ public class PlayerDataManager {
             String uuidString = entry.getKey().toString();
             config.set("players." + uuidString + ".ore", entry.getValue().name());
 
-            // NEW: Also save starter ore if it exists
+            // Also save starter ore if it exists
             OreType starterOre = starterOres.get(entry.getKey());
             if (starterOre != null) {
                 config.set("players." + uuidString + ".starter", starterOre.name());
             }
         }
 
-        // NEW: Save starter ores for players who might not have current ore data
+        // Save starter ores for players who might not have current ore data
         for (Map.Entry<UUID, OreType> entry : starterOres.entrySet()) {
             String uuidString = entry.getKey().toString();
             if (!playerOres.containsKey(entry.getKey())) {
@@ -93,7 +93,7 @@ public class PlayerDataManager {
         if (oreType == null) {
             oreType = OreType.getRandomStarter();
             setPlayerOre(player, oreType);
-            // NEW: Also set this as their starter ore
+            // Also set this as their starter ore
             starterOres.put(uuid, oreType);
             player.sendMessage("§6Welcome! You've been assigned the " + oreType.getDisplayName() + " ore type!");
             player.sendMessage("§7Use §e/ore help §7to learn more about abilities!");
@@ -122,7 +122,7 @@ public class PlayerDataManager {
         }
     }
 
-    // NEW: Get player's starter ore
+    // Get player's starter ore
     public OreType getPlayerStarterOre(Player player) {
         UUID uuid = player.getUniqueId();
         OreType starterOre = starterOres.get(uuid);
@@ -146,7 +146,21 @@ public class PlayerDataManager {
         return starterOre;
     }
 
-    // NEW: Reset player to starter ore (used on death)
+    // NEW: Set player's starter ore (for reroll command)
+    public void setPlayerStarterOre(Player player, OreType starterOre) {
+        if (!starterOre.isStarter()) {
+            plugin.getLogger().warning("Attempted to set non-starter ore " + starterOre.name() + " as starter for " + player.getName());
+            return;
+        }
+
+        UUID uuid = player.getUniqueId();
+        starterOres.put(uuid, starterOre);
+        savePlayerData();
+
+        plugin.getLogger().info("Set starter ore for " + player.getName() + " to " + starterOre.name());
+    }
+
+    // Reset player to starter ore (used on death)
     public void resetToStarterOre(Player player) {
         UUID uuid = player.getUniqueId();
         OreType currentOre = playerOres.get(uuid);
@@ -166,7 +180,7 @@ public class PlayerDataManager {
         }
     }
 
-    // NEW: Check if current ore is crafted (not starter)
+    // Check if current ore is crafted (not starter)
     public boolean hasCraftedOre(Player player) {
         OreType currentOre = playerOres.get(player.getUniqueId());
         return currentOre != null && !currentOre.isStarter();
@@ -231,7 +245,7 @@ public class PlayerDataManager {
     // Remove a player's ore data completely (admin command)
     public void removePlayerData(UUID uuid) {
         playerOres.remove(uuid);
-        starterOres.remove(uuid); // NEW: Also remove starter ore
+        starterOres.remove(uuid); // Also remove starter ore
         cooldowns.remove(uuid);
         savePlayerData();
     }
@@ -247,7 +261,7 @@ public class PlayerDataManager {
         UUID uuid = player.getUniqueId();
 
         playerOres.put(uuid, randomOre);
-        starterOres.put(uuid, randomOre); // NEW: Also save as starter
+        starterOres.put(uuid, randomOre); // Also save as starter
         savePlayerData();
 
         player.sendMessage("§6Welcome! You've been assigned the " + randomOre.getDisplayName() + " ore type!");

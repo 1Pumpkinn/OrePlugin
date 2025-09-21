@@ -41,15 +41,21 @@ public class OreAbilitiesCommand implements CommandExecutor {
             return true;
         }
 
-        // FIXED: Handle orecd command
+        // Handle orecd command
         if (label.equalsIgnoreCase("orecd")) {
             handleOreCooldownCommand(player, args);
             return true;
         }
 
-        // FIXED: Handle recipes command - this is the main fix!
+        // Handle recipes command
         if (label.equalsIgnoreCase("recipes") || label.equalsIgnoreCase("recipe") || label.equalsIgnoreCase("orerecipes")) {
             handleRecipeCommand(player, args);
+            return true;
+        }
+
+        // NEW: Handle reroll command
+        if (label.equalsIgnoreCase("reroll")) {
+            handleRerollCommand(player, args);
             return true;
         }
 
@@ -113,6 +119,11 @@ public class OreAbilitiesCommand implements CommandExecutor {
                 handleResetCommand(player, args);
                 break;
 
+            // NEW: Add reroll as a subcommand too
+            case "reroll":
+                handleRerollCommand(player, args);
+                break;
+
             default:
                 // Try to interpret as ore info request
                 handleOreInfoCommand(player, new String[]{"oreinfo", subCommand});
@@ -122,7 +133,94 @@ public class OreAbilitiesCommand implements CommandExecutor {
         return true;
     }
 
-    // FIXED: Handle recipe command with proper argument handling
+    // NEW: Handle reroll command
+    private void handleRerollCommand(Player player, String[] args) {
+        if (!player.hasPermission("oreabilities.admin")) {
+            player.sendMessage("§cYou don't have permission to use this command!");
+            return;
+        }
+
+        if (args.length < 1) {
+            player.sendMessage("§cUsage: §e/reroll <player>");
+            player.sendMessage("§7Rerolls a player's starter ore to a new random starter ore");
+            return;
+        }
+
+        String targetName = args[0];
+        Player target = plugin.getServer().getPlayer(targetName);
+
+        if (target == null) {
+            player.sendMessage("§cPlayer '" + targetName + "' not found or not online!");
+            return;
+        }
+
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+
+        // Get current ore and starter ore
+        OreType currentOre = dataManager.getPlayerOre(target);
+        OreType oldStarterOre = dataManager.getPlayerStarterOre(target);
+
+        // Generate new random starter ore (make sure it's different)
+        OreType newStarterOre;
+        int attempts = 0;
+        do {
+            newStarterOre = OreType.getRandomStarter();
+            attempts++;
+        } while (newStarterOre == oldStarterOre && attempts < 10); // Prevent infinite loop
+
+        // Clean up old effects if current ore is a starter ore
+        if (currentOre != null && currentOre.isStarter()) {
+            plugin.getPlayerListener().cleanupPlayerEffects(target, currentOre);
+            target.sendMessage("§7Removed " + currentOre.getDisplayName() + " ore effects...");
+        }
+
+        // Set new starter ore (this also updates current ore if it was a starter)
+        dataManager.setPlayerStarterOre(target, newStarterOre);
+
+        // If player currently has a starter ore, switch them to the new one
+        if (currentOre != null && currentOre.isStarter()) {
+            dataManager.setPlayerOre(target, newStarterOre);
+
+            // Apply new ore effects
+            target.sendMessage("§eApplying " + newStarterOre.getDisplayName() + " ore effects...");
+
+            // Restart action bar and timers
+            plugin.getActionBarManager().stopActionBar(target);
+            plugin.getActionBarManager().startActionBar(target);
+
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                plugin.getAbilityManager().restartPlayerTimers(target);
+            }, 5L);
+        }
+
+        // Send messages
+        if (target.equals(player)) {
+            player.sendMessage("§aRerolled your starter ore from §e" + oldStarterOre.getDisplayName() +
+                    "§a to §e" + newStarterOre.getDisplayName() + "§a!");
+            if (currentOre != null && !currentOre.isStarter()) {
+                player.sendMessage("§7Note: You currently have " + currentOre.getDisplayName() +
+                        " ore. Your starter ore will apply when you die or reset.");
+            }
+        } else {
+            player.sendMessage("§aRerolled " + target.getName() + "'s starter ore from §e" +
+                    oldStarterOre.getDisplayName() + "§a to §e" + newStarterOre.getDisplayName() + "§a!");
+
+            target.sendMessage("§eAn admin rerolled your starter ore from §c" + oldStarterOre.getDisplayName() +
+                    "§e to §a" + newStarterOre.getDisplayName() + "§e!");
+
+            if (currentOre != null && currentOre.isStarter()) {
+                target.sendMessage("§aYour ore type has been changed to your new starter ore!");
+            } else if (currentOre != null) {
+                target.sendMessage("§7Your current ore (" + currentOre.getDisplayName() +
+                        ") remains unchanged. Your new starter ore will apply when you die.");
+            }
+        }
+
+        plugin.getLogger().info("Admin " + player.getName() + " rerolled " + target.getName() +
+                "'s starter ore from " + oldStarterOre.name() + " to " + newStarterOre.name());
+    }
+
+    // Handle recipe command with proper argument handling
     private void handleRecipeCommand(Player player, String[] args) {
         // Check if this was called directly as /recipes command
         if (args.length == 0) {
@@ -214,6 +312,12 @@ public class OreAbilitiesCommand implements CommandExecutor {
         player.sendMessage("§6=== Your Ore Info ===");
         player.sendMessage("§eOre Type: §a" + oreType.getDisplayName());
         player.sendMessage("§eCooldown: §b" + oreType.getCooldown() + " seconds");
+
+        // NEW: Show starter ore info
+        OreType starterOre = dataManager.getPlayerStarterOre(player);
+        if (!oreType.isStarter()) {
+            player.sendMessage("§eStarter Ore: §7" + starterOre.getDisplayName() + " (reverts on death)");
+        }
 
         if (dataManager.isOnCooldown(player)) {
             long remaining = dataManager.getRemainingCooldown(player);
@@ -550,6 +654,7 @@ public class OreAbilitiesCommand implements CommandExecutor {
             player.sendMessage("§cAdmin Commands:");
             player.sendMessage("  §e/ore change <ore> [player] §7- Set ore type");
             player.sendMessage("  §e/ore reset <player> §7- Reset player's ore");
+            player.sendMessage("  §e/reroll <player> §7- Reroll player's starter ore"); // NEW
             player.sendMessage("  §e/ore reload §7- Reload plugin");
             player.sendMessage("  §e/orecd reset [player] §7- Reset ore cooldown");
             player.sendMessage("");
