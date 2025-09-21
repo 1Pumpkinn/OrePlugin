@@ -21,7 +21,7 @@ commands:
     permission: oreabilities.trust
   ore:
     description: Main ore command - simplified and easy to use
-    usage: /ore [info|list|help|change|reset|recipes|<orename>]
+    usage: /ore [info|list|help|change|reset|recipes|reroll|<orename>]
     permission: oreabilities.use
     aliases: [oreabilities, oa]
   ability:
@@ -49,6 +49,10 @@ commands:
     description: View ore crafting recipes in a GUI (alias)
     usage: /orerecipes [ore]
     permission: oreabilities.use
+  reroll:
+    description: Reroll a player's starter ore to a new random starter ore (Admin only)
+    usage: /reroll <player>
+    permission: oreabilities.admin
 
 permissions:
   oreabilities.*:

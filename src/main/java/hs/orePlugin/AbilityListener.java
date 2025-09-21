@@ -644,16 +644,6 @@ public class AbilityListener implements Listener {
         if (armorAttribute != null) {
             if (hasFullLeatherArmor) {
                 armorAttribute.setBaseValue(20);
-
-                // Make leather armor unbreakable
-                for (ItemStack piece : armor) {
-                    if (piece != null && piece.getType().name().contains("LEATHER")) {
-                        ItemMeta meta = piece.getItemMeta();
-                        if (meta != null) {
-                            piece.setItemMeta(meta);
-                        }
-                    }
-                }
             } else {
                 armorAttribute.setBaseValue(0);
             }
