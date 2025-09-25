@@ -10,17 +10,21 @@ public enum OreType {
     COAL("Coal", false, 10),
     COPPER("Copper", false, 45),
     IRON("Iron", false, 45),
-    GOLD("Gold", false, 120), // Updated cooldown from 75 to 120
+    GOLD("Gold", false, 120),
     REDSTONE("Redstone", false, 80),
     LAPIS("Lapis", false, 240),
     EMERALD("Emerald", false, 270),
     AMETHYST("Amethyst", false, 120),
     DIAMOND("Diamond", false, 360),
-    NETHERITE("Netherite", false, 600);
+    NETHERITE("Netherite", false, 600),
+
+    // Event ores
+    WITHER("Wither", false, 30),  // Event ore from Wither Event
+    PIGLIN("Piglin", false, 120);  // Event ore from Wither Event
 
     private final String displayName;
     private final boolean isStarter;
-    private final int defaultCooldown; // Default cooldown, can be overridden by config
+    private final int defaultCooldown;
 
     OreType(String displayName, boolean isStarter, int defaultCooldown) {
         this.displayName = displayName;
@@ -34,6 +38,10 @@ public enum OreType {
 
     public boolean isStarter() {
         return isStarter;
+    }
+
+    public boolean isEventOre() {
+        return this == WITHER || this == PIGLIN;
     }
 
     public int getCooldown() {
