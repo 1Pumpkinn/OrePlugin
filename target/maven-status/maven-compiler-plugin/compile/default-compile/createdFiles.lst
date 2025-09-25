@@ -1,9 +1,12 @@
 hs\orePlugin\AbilityActivationManager$1.class
+hs\orePlugin\WitherEventManager$2.class
+hs\orePlugin\WitherEventManager.class
 hs\orePlugin\RecipeManager$1.class
 hs\orePlugin\AbilityListener$3.class
 hs\orePlugin\AbilityListener$10.class
 hs\orePlugin\AbilityListener$7.class
 hs\orePlugin\RecipeManager.class
+hs\orePlugin\WitherEventManager$5.class
 hs\orePlugin\AbilityManager$6.class
 hs\orePlugin\AbilityListener$4.class
 hs\orePlugin\AbilityManager$3.class
@@ -17,6 +20,8 @@ hs\orePlugin\AbilityListener$2.class
 hs\orePlugin\OreAbilitiesPlugin$2.class
 hs\orePlugin\AbilityListener$8.class
 hs\orePlugin\AbilityActivationManager.class
+hs\orePlugin\WitherEventManager$1.class
+hs\orePlugin\WitherEventManager$4.class
 hs\orePlugin\ActionBarManager.class
 hs\orePlugin\OreAbilitiesCommand.class
 hs\orePlugin\AbilityManager$7.class
@@ -25,7 +30,9 @@ hs\orePlugin\AbilityListener$5.class
 hs\orePlugin\PlayerListener$3.class
 hs\orePlugin\ActionBarManager$2.class
 hs\orePlugin\OreAbilitiesPlugin.class
+hs\orePlugin\AbilityManager$11.class
 hs\orePlugin\AbilityManager$5.class
+hs\orePlugin\WitherEventManager$7.class
 hs\orePlugin\AbilityListener.class
 hs\orePlugin\AbilityManager$1.class
 hs\orePlugin\RecipeManager$RecipeDefinition.class
@@ -33,6 +40,7 @@ hs\orePlugin\AbilityManager$8.class
 hs\orePlugin\PlayerListener.class
 hs\orePlugin\AbilityListener$1.class
 hs\orePlugin\AbilityListener$9.class
+hs\orePlugin\AbilityListener$12.class
 hs\orePlugin\ActionBarManager$1.class
 hs\orePlugin\AbilityManager$10.class
 hs\orePlugin\OreConfigs.class
@@ -40,8 +48,10 @@ hs\orePlugin\OreItemListener.class
 hs\orePlugin\AbilityListener$6.class
 hs\orePlugin\AbilityManager.class
 hs\orePlugin\PlayerListener$2.class
+hs\orePlugin\AbilityListener$11.class
 hs\orePlugin\AbilityManager$9.class
 hs\orePlugin\OreAbilitiesCommand$1.class
+hs\orePlugin\WitherEventManager$3.class
 hs\orePlugin\OreItemListener$1.class
 hs\orePlugin\PlayerDataManager.class
 hs\orePlugin\TrustCommand.class
@@ -49,3 +59,4 @@ hs\orePlugin\TrustManager.class
 hs\orePlugin\PlayerListener$6.class
 hs\orePlugin\AbilityManager$2.class
 hs\orePlugin\RecipeGUI$RecipeData.class
+hs\orePlugin\WitherEventManager$6.class

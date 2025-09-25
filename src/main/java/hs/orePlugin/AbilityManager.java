@@ -129,17 +129,8 @@ public class AbilityManager {
                 netheriteAbility(player);
                 break;
 
-            case WITHER:
-                witherAbility(player);
-                break;
-            case PIGLIN:
-                piglinAbility(player);
-                break;
         }
     }
-
-    // In AbilityManager.java, replace the dirtAbility method with this:
-
 
     private void dirtAbility(Player player) {
         Location loc = player.getLocation();
@@ -208,42 +199,6 @@ public class AbilityManager {
         player.getInventory().setItemInMainHand(new ItemStack(smeltResult, amount));
         player.sendMessage("§6Sizzle! Smelted " + amount + " items!");
         player.playSound(player.getLocation(), Sound.BLOCK_FURNACE_FIRE_CRACKLE, 1.0f, 1.0f);
-    }
-
-    private void witherAbility(Player player) {
-// Shoot a wither skull that doesn't damage the player
-        Location eyeLoc = player.getEyeLocation();
-        Vector direction = eyeLoc.getDirection();
-
-        WitherSkull skull = (WitherSkull) player.getWorld().spawnEntity(eyeLoc, EntityType.WITHER_SKULL);
-        skull.setDirection(direction);
-        skull.setVelocity(direction.multiply(1.5));
-        skull.setShooter(player);
-        skull.setYield(0.0f); // Reduce explosion damage
-
-        // Store the shooter to prevent self-damage
-        skull.getPersistentDataContainer().set(
-                new NamespacedKey(plugin, "wither_shooter"),
-                PersistentDataType.STRING,
-                player.getUniqueId().toString()
-        );
-
-        player.sendMessage("§8Wither Skull launched!");
-        player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SHOOT, 1.0f, 1.0f);
-    }
-
-    private void piglinAbility(Player player) {
-        activeEffects.put(player.getUniqueId(), true);
-        player.sendMessage("§6Piglin Fury activated! Bows deal 3x damage for 20 seconds!");
-        player.playSound(player.getLocation(), Sound.ENTITY_PIGLIN_ANGRY, 1.0f, 1.0f);
-
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                activeEffects.remove(player.getUniqueId());
-                player.sendMessage("§7Piglin Fury has ended.");
-            }
-        }.runTaskLater(plugin, 400); // 20 seconds
     }
 
         private void copperAbility(Player player) {

@@ -90,23 +90,6 @@ public class OreConfigs {
         return config.getInt("coal.water-damage-interval", 2000);
     }
 
-    // Wither event settings
-    public int getWitherEventDuration() {
-        return config.getInt("wither-event.duration", 600); // 10 minutes default
-    }
-
-    public int getWitherEventHealth() {
-        return config.getInt("wither-event.wither-health", 500);
-    }
-
-    public int getPiglinSpawnInterval() {
-        return config.getInt("wither-event.piglin-spawn-interval", 20); // seconds
-    }
-
-    public boolean isWitherEventEnabled() {
-        return config.getBoolean("wither-event.enabled", true);
-    }
-
     // Message system
     private void loadMessages() {
         if (config.getConfigurationSection("messages") != null) {

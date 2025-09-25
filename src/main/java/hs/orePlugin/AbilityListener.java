@@ -101,26 +101,6 @@ public class AbilityListener implements Listener {
                 }
                 break;
 
-            case WITHER:
-                // 10% chance to apply wither effect when hurting someone
-                if (event.getEntity() instanceof Player && random.nextDouble() < 0.10) {
-                    Player target = (Player) event.getEntity();
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 100, 0)); // 5 seconds
-                    player.sendMessage("§8Wither upside! Applied wither effect to " + target.getName());
-                    target.sendMessage("§8You've been withered!");
-                }
-                break;
-
-            case PIGLIN:
-                // Handle bow damage multiplier for piglin ore
-                if (abilityManager.hasActiveEffect(player)) {
-                    // Check if damage was dealt with a bow (projectile)
-                    if (event.getCause() == EntityDamageEvent.DamageCause.PROJECTILE) {
-                        // This is handled in the projectile hit event
-                    }
-                }
-                break;
-
             case COPPER:
                 if (abilityManager.hasCopperLightningActive(player)) {
                     event.getEntity().getWorld().strikeLightning(event.getEntity().getLocation());
@@ -221,28 +201,6 @@ public class AbilityListener implements Listener {
                     player.setFireTicks(0);
                 }
                 break;
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGH)
-    public void onWitherSkullDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof WitherSkull)) return;
-        if (!(event.getEntity() instanceof Player)) return;
-
-        WitherSkull skull = (WitherSkull) event.getDamager();
-        Player damaged = (Player) event.getEntity();
-
-        // Check if this skull was shot by the damaged player (prevent self-damage)
-        if (skull.getPersistentDataContainer().has(new NamespacedKey(plugin, "wither_shooter"))) {
-            String shooterUUID = skull.getPersistentDataContainer().get(
-                    new NamespacedKey(plugin, "wither_shooter"),
-                    PersistentDataType.STRING
-            );
-
-            if (shooterUUID != null && shooterUUID.equals(damaged.getUniqueId().toString())) {
-                event.setCancelled(true);
-                damaged.sendMessage("§7Your wither skull doesn't damage you!");
-            }
         }
     }
 
@@ -669,15 +627,6 @@ public class AbilityListener implements Listener {
                 plugin.getAbilityManager().startAmethystGlowing(player);
                 break;
 
-            case WITHER:
-                // No persistent effects for wither ore
-                player.sendMessage("§8Wither ore equipped! 10% chance to wither enemies, 5% chance health gets hidden when hit.");
-                break;
-
-            case PIGLIN:
-                // Apply hunger in overworld and gold armor effects
-                applyPiglinEffects(player);
-                break;
 
             case EMERALD:
                 player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, Integer.MAX_VALUE, 9, false, false));
@@ -742,16 +691,6 @@ public class AbilityListener implements Listener {
                 // No timer to stop
                 player.sendMessage("§7Diamond armor effect removed");
                 break;
-
-            case WITHER:
-                // No persistent effects to remove for wither ore
-                break;
-
-            case PIGLIN:
-                player.removePotionEffect(PotionEffectType.HUNGER);
-                // Reset gold armor
-                removePiglinGoldArmorEffects(player);
-                break;
             case STONE:
                 player.removePotionEffect(PotionEffectType.REGENERATION);
                 player.removePotionEffect(PotionEffectType.SLOWNESS);
@@ -783,38 +722,6 @@ public class AbilityListener implements Listener {
             }
         } catch (Exception e) {
             plugin.getLogger().warning("Could not remove player from amethyst team: " + e.getMessage());
-        }
-    }
-
-    private void removePiglinGoldArmorEffects(Player player) {
-        ItemStack[] armor = player.getInventory().getArmorContents();
-
-        for (ItemStack piece : armor) {
-            if (piece != null && isGoldArmor(piece.getType())) {
-                ItemMeta meta = piece.getItemMeta();
-                if (meta != null) {
-                    meta.setUnbreakable(false);
-                    // Remove piglin blessing lore
-                    if (meta.hasLore()) {
-                        java.util.List<String> lore = meta.getLore();
-                        lore.removeIf(line -> line.contains("Piglin Blessed") ||
-                                line.contains("Acts like Diamond Armor") ||
-                                line.contains("Unbreakable"));
-                        if (lore.isEmpty()) {
-                            meta.setLore(null);
-                        } else {
-                            meta.setLore(lore);
-                        }
-                    }
-                    piece.setItemMeta(meta);
-                }
-            }
-        }
-
-        // Reset armor attribute
-        AttributeInstance armorAttr = player.getAttribute(Attribute.ARMOR);
-        if (armorAttr != null) {
-            armorAttr.setBaseValue(0); // Reset to default
         }
     }
 
