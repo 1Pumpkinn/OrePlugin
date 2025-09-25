@@ -1,25 +1,25 @@
 package hs.orePlugin;
 
+import org.bukkit.*;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.inventory.*;
 import org.bukkit.event.player.*;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.enchantment.EnchantItemEvent;
 import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.Material;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
-import org.bukkit.Sound;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
-import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -101,6 +101,26 @@ public class AbilityListener implements Listener {
                 }
                 break;
 
+            case WITHER:
+                // 10% chance to apply wither effect when hurting someone
+                if (event.getEntity() instanceof Player && random.nextDouble() < 0.10) {
+                    Player target = (Player) event.getEntity();
+                    target.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 100, 0)); // 5 seconds
+                    player.sendMessage("§8Wither upside! Applied wither effect to " + target.getName());
+                    target.sendMessage("§8You've been withered!");
+                }
+                break;
+
+            case PIGLIN:
+                // Handle bow damage multiplier for piglin ore
+                if (abilityManager.hasActiveEffect(player)) {
+                    // Check if damage was dealt with a bow (projectile)
+                    if (event.getCause() == EntityDamageEvent.DamageCause.PROJECTILE) {
+                        // This is handled in the projectile hit event
+                    }
+                }
+                break;
+
             case COPPER:
                 if (abilityManager.hasCopperLightningActive(player)) {
                     event.getEntity().getWorld().strikeLightning(event.getEntity().getLocation());
@@ -153,6 +173,27 @@ public class AbilityListener implements Listener {
                 }
                 break;
 
+            case WITHER:
+                // 5% chance to hide health when hit by someone
+                if (event instanceof EntityDamageByEntityEvent) {
+                    EntityDamageByEntityEvent damageByEntity = (EntityDamageByEntityEvent) event;
+                    if (damageByEntity.getDamager() instanceof Player && random.nextDouble() < 0.05) {
+                        // Hide health for 5 seconds using invisibility on health bar
+                        hidePlayerHealth(player, 100); // 5 seconds
+                        player.sendMessage("§cWither downside! Your health is hidden for 5 seconds!");
+                    }
+                }
+                break;
+
+            case PIGLIN:
+                // Hunger effect when in overworld
+                if (player.getWorld().getEnvironment() == World.Environment.NORMAL) {
+                    if (!player.hasPotionEffect(PotionEffectType.HUNGER)) {
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, Integer.MAX_VALUE, 0, false, false));
+                    }
+                }
+                break;
+
             case COPPER:
                 if (event.getCause() == EntityDamageEvent.DamageCause.LIGHTNING) {
                     event.setCancelled(true);
@@ -183,6 +224,28 @@ public class AbilityListener implements Listener {
         }
     }
 
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onWitherSkullDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof WitherSkull)) return;
+        if (!(event.getEntity() instanceof Player)) return;
+
+        WitherSkull skull = (WitherSkull) event.getDamager();
+        Player damaged = (Player) event.getEntity();
+
+        // Check if this skull was shot by the damaged player (prevent self-damage)
+        if (skull.getPersistentDataContainer().has(new NamespacedKey(plugin, "wither_shooter"))) {
+            String shooterUUID = skull.getPersistentDataContainer().get(
+                    new NamespacedKey(plugin, "wither_shooter"),
+                    PersistentDataType.STRING
+            );
+
+            if (shooterUUID != null && shooterUUID.equals(damaged.getUniqueId().toString())) {
+                event.setCancelled(true);
+                damaged.sendMessage("§7Your wither skull doesn't damage you!");
+            }
+        }
+    }
+
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
@@ -207,6 +270,9 @@ public class AbilityListener implements Listener {
             }
         }
     }
+
+
+
 
     @EventHandler
     public void onEntityPickupItem(EntityPickupItemEvent event) {
@@ -369,6 +435,19 @@ public class AbilityListener implements Listener {
         }
     }
 
+    private void hidePlayerHealth(Player player, int durationTicks) {
+        // Use absorption effect with 0 hearts to hide health bar temporarily
+        // This is a visual trick - the health bar becomes harder to read
+        player.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, durationTicks, 0, false, false));
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                player.sendMessage("§aYour health is visible again!");
+            }
+        }.runTaskLater(plugin, durationTicks);
+    }
+
     private void handleCoalWaterDamage(Player player) {
         if (player.isInWater()) {
             UUID uuid = player.getUniqueId();
@@ -474,6 +553,72 @@ public class AbilityListener implements Listener {
     }
 
 
+    private void applyPiglinEffects(Player player) {
+        // Apply hunger if in overworld
+        if (player.getWorld().getEnvironment() == World.Environment.NORMAL) {
+            player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, Integer.MAX_VALUE, 0, false, false));
+            player.sendMessage("§6Piglin curse! Hunger in the overworld.");
+        }
+
+        // Check and upgrade gold armor
+        upgradePiglinGoldArmor(player);
+        player.sendMessage("§6Piglin blessing! Gold armor acts like diamond and is unbreakable.");
+    }
+
+    private void upgradePiglinGoldArmor(Player player) {
+        ItemStack[] armor = player.getInventory().getArmorContents();
+        boolean hasGoldArmor = false;
+
+        for (int i = 0; i < armor.length; i++) {
+            ItemStack piece = armor[i];
+            if (piece != null && isGoldArmor(piece.getType())) {
+                hasGoldArmor = true;
+                // Make gold armor unbreakable
+                ItemMeta meta = piece.getItemMeta();
+                if (meta instanceof Damageable) {
+                    meta.setUnbreakable(true);
+                    // Add lore to indicate it's been upgraded
+                    java.util.List<String> lore = meta.hasLore() ? meta.getLore() : new java.util.ArrayList<>();
+                    if (!lore.contains("§6Piglin Blessed")) {
+                        lore.add("§6Piglin Blessed");
+                        lore.add("§7Acts like Diamond Armor");
+                        lore.add("§7Unbreakable");
+                        meta.setLore(lore);
+                    }
+                    piece.setItemMeta(meta);
+                }
+            }
+        }
+
+        if (hasGoldArmor) {
+            // Apply diamond-level protection for gold armor
+            AttributeInstance armorAttr = player.getAttribute(Attribute.ARMOR);
+            if (armorAttr != null) {
+                // Calculate armor points for current gold armor and upgrade to diamond level
+                int goldArmorPieces = countGoldArmorPieces(armor);
+                double diamondArmorBonus = goldArmorPieces * 2; // Each gold piece gets +2 armor (diamond level)
+                armorAttr.setBaseValue(armorAttr.getBaseValue() + diamondArmorBonus);
+            }
+        }
+    }
+
+    private boolean isGoldArmor(Material material) {
+        return material == Material.GOLDEN_HELMET ||
+                material == Material.GOLDEN_CHESTPLATE ||
+                material == Material.GOLDEN_LEGGINGS ||
+                material == Material.GOLDEN_BOOTS;
+    }
+
+    private int countGoldArmorPieces(ItemStack[] armor) {
+        int count = 0;
+        for (ItemStack piece : armor) {
+            if (piece != null && isGoldArmor(piece.getType())) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     private void applyGoldCurse(Player player, Material itemType) {
         ItemStack[] contents = player.getInventory().getContents();
         for (int i = 0; i < contents.length; i++) {
@@ -522,6 +667,16 @@ public class AbilityListener implements Listener {
 
             case AMETHYST:
                 plugin.getAbilityManager().startAmethystGlowing(player);
+                break;
+
+            case WITHER:
+                // No persistent effects for wither ore
+                player.sendMessage("§8Wither ore equipped! 10% chance to wither enemies, 5% chance health gets hidden when hit.");
+                break;
+
+            case PIGLIN:
+                // Apply hunger in overworld and gold armor effects
+                applyPiglinEffects(player);
                 break;
 
             case EMERALD:
@@ -587,6 +742,16 @@ public class AbilityListener implements Listener {
                 // No timer to stop
                 player.sendMessage("§7Diamond armor effect removed");
                 break;
+
+            case WITHER:
+                // No persistent effects to remove for wither ore
+                break;
+
+            case PIGLIN:
+                player.removePotionEffect(PotionEffectType.HUNGER);
+                // Reset gold armor
+                removePiglinGoldArmorEffects(player);
+                break;
             case STONE:
                 player.removePotionEffect(PotionEffectType.REGENERATION);
                 player.removePotionEffect(PotionEffectType.SLOWNESS);
@@ -618,6 +783,38 @@ public class AbilityListener implements Listener {
             }
         } catch (Exception e) {
             plugin.getLogger().warning("Could not remove player from amethyst team: " + e.getMessage());
+        }
+    }
+
+    private void removePiglinGoldArmorEffects(Player player) {
+        ItemStack[] armor = player.getInventory().getArmorContents();
+
+        for (ItemStack piece : armor) {
+            if (piece != null && isGoldArmor(piece.getType())) {
+                ItemMeta meta = piece.getItemMeta();
+                if (meta != null) {
+                    meta.setUnbreakable(false);
+                    // Remove piglin blessing lore
+                    if (meta.hasLore()) {
+                        java.util.List<String> lore = meta.getLore();
+                        lore.removeIf(line -> line.contains("Piglin Blessed") ||
+                                line.contains("Acts like Diamond Armor") ||
+                                line.contains("Unbreakable"));
+                        if (lore.isEmpty()) {
+                            meta.setLore(null);
+                        } else {
+                            meta.setLore(lore);
+                        }
+                    }
+                    piece.setItemMeta(meta);
+                }
+            }
+        }
+
+        // Reset armor attribute
+        AttributeInstance armorAttr = player.getAttribute(Attribute.ARMOR);
+        if (armorAttr != null) {
+            armorAttr.setBaseValue(0); // Reset to default
         }
     }
 
@@ -787,6 +984,9 @@ public class AbilityListener implements Listener {
         OreType oreType = dataManager.getPlayerOre(player);
     }
 
+
+
+
     @EventHandler
     public void onPlayerArmorStandManipulate(PlayerArmorStandManipulateEvent event) {
         Player player = event.getPlayer();
@@ -801,6 +1001,40 @@ public class AbilityListener implements Listener {
                     checkAndApplyDirtMiningFatigue(player);
                 }
             }.runTaskLater(plugin, 1);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onProjectileHit(ProjectileHitEvent event) {
+        if (!(event.getEntity().getShooter() instanceof Player)) return;
+        if (!(event.getHitEntity() instanceof LivingEntity)) return;
+
+        Player shooter = (Player) event.getEntity().getShooter();
+        LivingEntity target = (LivingEntity) event.getHitEntity();
+
+        PlayerDataManager dataManager = plugin.getPlayerDataManager();
+        AbilityManager abilityManager = plugin.getAbilityManager();
+        OreType oreType = dataManager.getPlayerOre(shooter);
+
+        if (oreType == OreType.PIGLIN && abilityManager.hasActiveEffect(shooter)) {
+            if (event.getEntity() instanceof Arrow) {
+                // Apply 3x bow damage
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        double currentHealth = target.getHealth();
+                        double maxHealth = target.getAttribute(Attribute.MAX_HEALTH).getValue();
+                        // Get the damage that was just dealt and multiply by 2 more (since 1x was already applied)
+                        EntityDamageByEntityEvent lastDamage = target.getLastDamageCause() instanceof EntityDamageByEntityEvent ?
+                                (EntityDamageByEntityEvent) target.getLastDamageCause() : null;
+                        if (lastDamage != null && lastDamage.getDamager() == event.getEntity()) {
+                            double additionalDamage = lastDamage.getDamage() * 2; // 2x more for total 3x
+                            target.damage(additionalDamage, shooter);
+                            shooter.sendMessage("§6Piglin Fury! Bow dealt 3x damage!");
+                        }
+                    }
+                }.runTaskLater(plugin, 1L);
+            }
         }
     }
 
@@ -832,6 +1066,7 @@ public class AbilityListener implements Listener {
             }.runTaskLater(plugin, 1);
         }
     }
+
 
     private boolean isToolWeaponOrArmor(Material material) {
         String name = material.name();
