@@ -1,3 +1,4 @@
+
 # Ore Abilities Plugin Configuration
 
 # Plugin Settings
@@ -28,8 +29,10 @@ ores:
     amethyst: true
     diamond: true
     netherite: true
+    wither: true
+    piglin: true
 
-# Ability Cooldowns (in seconds) - can be overridden here
+# Ability Cooldowns (in seconds)
 cooldowns:
   dirt: 30
   wood: 30
@@ -37,13 +40,35 @@ cooldowns:
   coal: 10
   copper: 45
   iron: 45
-  gold: 120  # Updated from 75 to 120 seconds
+  gold: 120
   redstone: 80
   lapis: 240
   emerald: 270
   amethyst: 120
   diamond: 360
   netherite: 600
+  wither: 30
+  piglin: 120
+
+# Wither Event Settings
+wither-event:
+  # Enable wither events
+  enabled: true
+
+  # Event duration in seconds (600 = 10 minutes)
+  duration: 600
+
+  # Wither health for the event
+  wither-health: 500
+
+  # Piglin spawn interval in seconds
+  piglin-spawn-interval: 20
+
+  # Arena location (set by admin command)
+  arena-world: world
+  arena-x: 0
+  arena-y: 100
+  arena-z: 0
 
 # Trust System Settings
 trust:

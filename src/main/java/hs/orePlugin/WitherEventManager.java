@@ -6,15 +6,11 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.player.PlayerTeleportEvent;
-import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scoreboard.*;
-import org.bukkit.block.Block;
 import org.bukkit.util.Vector;
 
 import java.util.*;
@@ -30,6 +26,7 @@ public class WitherEventManager implements Listener {
     private Location spawnPortalLocation = null;
     private List<Player> eventParticipants = new ArrayList<>();
     private Map<Player, Location> originalLocations = new HashMap<>();
+    private Set<UUID> piglinOreRecipients = new HashSet<>();
 
     // Timers
     private BukkitTask eventTimer = null;
@@ -40,7 +37,7 @@ public class WitherEventManager implements Listener {
         this.plugin = plugin;
     }
 
-    public boolean startWitherEvent(Player initiator) {
+    public boolean startWitherEvent(Player initiator, Location arenaLocation) {
         if (eventActive) {
             initiator.sendMessage("§cWither event is already active!");
             return false;
@@ -49,6 +46,7 @@ public class WitherEventManager implements Listener {
         // Get all online players
         eventParticipants.clear();
         originalLocations.clear();
+        piglinOreRecipients.clear();
 
         for (Player player : plugin.getServer().getOnlinePlayers()) {
             eventParticipants.add(player);
@@ -61,19 +59,14 @@ public class WitherEventManager implements Listener {
         }
 
         eventActive = true;
-        timeRemaining = 600; // 10 minutes
-
-        // Create arena (you may want to customize this location)
-        World world = initiator.getWorld();
-        arenaCenter = new Location(world, 0, 100, 0); // Customize as needed
-
-        // Clear and prepare arena
-        prepareArena();
+        OreConfigs configs = plugin.getOreConfigs();
+        timeRemaining = configs != null ? configs.getWitherEventDuration() : 600;
+        arenaCenter = arenaLocation;
 
         // Teleport all players
         teleportPlayersToArena();
 
-        // Spawn wither with 500 hearts
+        // Spawn wither with configured health
         spawnEventWither();
 
         // Start timers
@@ -89,33 +82,25 @@ public class WitherEventManager implements Listener {
         return true;
     }
 
-    private void prepareArena() {
-        // Create a simple arena platform
-        World world = arenaCenter.getWorld();
-        int radius = 30;
+    private void announceEventStart() {
+        for (Player player : eventParticipants) {
+            player.sendTitle("§4⚔ WITHER EVENT ⚔", "§cDefeat the 500 HP Wither!", 10, 70, 20);
+            player.sendMessage("");
+            player.sendMessage("§4§l════════════════════════════════");
+            player.sendMessage("§c§l         WITHER EVENT STARTED!");
+            player.sendMessage("");
+            player.sendMessage("§e⚔ Objective: §fDefeat the 500 HP Wither");
+            player.sendMessage("§e⏰ Time Limit: §f10 minutes");
+            player.sendMessage("§e🎁 Rewards:");
+            player.sendMessage("  §8➤ §4Wither Ore §7- Kill the Wither");
+            player.sendMessage("  §8➤ §6Piglin Ore §7- Automatic on Wither death");
+            player.sendMessage("");
+            player.sendMessage("§c⚠ Warning: §fPiglins spawn every 20 seconds!");
+            player.sendMessage("§c⚠ Warning: §fWither Ore transfers on death!");
+            player.sendMessage("§4§l════════════════════════════════");
+            player.sendMessage("");
 
-        for (int x = -radius; x <= radius; x++) {
-            for (int z = -radius; z <= radius; z++) {
-                if (x*x + z*z <= radius*radius) {
-                    Location loc = arenaCenter.clone().add(x, -1, z);
-                    world.getBlockAt(loc).setType(Material.OBSIDIAN);
-                }
-            }
-        }
-
-        // Clear air space above
-        for (int x = -radius; x <= radius; x++) {
-            for (int z = -radius; z <= radius; z++) {
-                for (int y = 0; y <= 20; y++) {
-                    if (x*x + z*z <= radius*radius) {
-                        Location loc = arenaCenter.clone().add(x, y, z);
-                        Block block = world.getBlockAt(loc);
-                        if (block.getType() != Material.AIR) {
-                            block.setType(Material.AIR);
-                        }
-                    }
-                }
-            }
+            player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1.0f, 1.0f);
         }
     }
 
@@ -135,23 +120,27 @@ public class WitherEventManager implements Listener {
             teleportLoc.setYaw((float) Math.toDegrees(angle + Math.PI));
 
             player.teleport(teleportLoc);
-            player.sendMessage("§4⚔ WITHER EVENT STARTED! §cDefeat the 500 HP Wither to claim the Wither Ore!");
         }
     }
 
     private void spawnEventWither() {
+        OreConfigs configs = plugin.getOreConfigs();
+        int witherHealth = configs != null ? configs.getWitherEventHealth() : 500;
+
         Location witherSpawn = arenaCenter.clone().add(0, 10, 0);
         eventWither = (Wither) arenaCenter.getWorld().spawnEntity(witherSpawn, EntityType.WITHER);
 
-        // Set health to 500 (25 hearts * 20 = 500 HP)
-        eventWither.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(500.0);
-        eventWither.setHealth(500.0);
+        // Set health to configured amount
+        eventWither.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(witherHealth);
+        eventWither.setHealth(witherHealth);
 
-        eventWither.setCustomName("§4Event Wither §c[500❤]");
+        eventWither.setCustomName("§4Event Wither §c[" + witherHealth + "❤]");
         eventWither.setCustomNameVisible(true);
 
         // Make wither more aggressive
-        eventWither.setTarget(eventParticipants.get(0));
+        if (!eventParticipants.isEmpty()) {
+            eventWither.setTarget(eventParticipants.get(0));
+        }
     }
 
     private void startEventTimers() {
@@ -159,6 +148,11 @@ public class WitherEventManager implements Listener {
         eventTimer = new BukkitRunnable() {
             @Override
             public void run() {
+                if (!eventActive) {
+                    cancel();
+                    return;
+                }
+
                 timeRemaining--;
 
                 if (timeRemaining <= 0) {
@@ -179,7 +173,10 @@ public class WitherEventManager implements Listener {
             }
         }.runTaskTimer(plugin, 20L, 20L);
 
-        // Piglin spawn timer (every 20 seconds)
+        // Piglin spawn timer
+        OreConfigs configs = plugin.getOreConfigs();
+        int spawnInterval = configs != null ? configs.getPiglinSpawnInterval() : 20;
+
         piglinSpawnTimer = new BukkitRunnable() {
             @Override
             public void run() {
@@ -190,7 +187,7 @@ public class WitherEventManager implements Listener {
 
                 spawnEventPiglins();
             }
-        }.runTaskTimer(plugin, 400L, 400L); // 400 ticks = 20 seconds
+        }.runTaskTimer(plugin, spawnInterval * 20L, spawnInterval * 20L);
 
         // Scoreboard update timer
         scoreboardUpdateTimer = new BukkitRunnable() {
@@ -215,7 +212,11 @@ public class WitherEventManager implements Listener {
             Location spawnLoc = getRandomSpawnLocation(witherLoc);
             Piglin piglin = (Piglin) witherLoc.getWorld().spawnEntity(spawnLoc, EntityType.PIGLIN);
             piglin.setAdult();
-            piglin.setAngry(true);
+            // Set aggressive behavior without using setAngry
+            piglin.setImmuneToZombification(true);
+            if (!eventParticipants.isEmpty()) {
+                piglin.setTarget(eventParticipants.get(new Random().nextInt(eventParticipants.size())));
+            }
             piglin.getEquipment().setItemInMainHand(new ItemStack(Material.GOLDEN_SWORD));
         }
 
@@ -223,6 +224,10 @@ public class WitherEventManager implements Listener {
         Location bruteLoc = getRandomSpawnLocation(witherLoc);
         PiglinBrute brute = (PiglinBrute) witherLoc.getWorld().spawnEntity(bruteLoc, EntityType.PIGLIN_BRUTE);
         brute.setAdult();
+        brute.setImmuneToZombification(true);
+        if (!eventParticipants.isEmpty()) {
+            brute.setTarget(eventParticipants.get(new Random().nextInt(eventParticipants.size())));
+        }
         brute.getEquipment().setItemInMainHand(new ItemStack(Material.GOLDEN_AXE));
 
         announceToParticipants("§6⚔ Piglins have spawned near the Wither!");
@@ -247,11 +252,15 @@ public class WitherEventManager implements Listener {
             // Give Wither ore to killer
             giveWitherOre(killer);
 
-            // Give Piglin ore to killer (one-time message, not on scoreboard)
-            givePiglinOre(killer);
+            // Give Piglin ore to the killer only (one-time reward)
+            if (!piglinOreRecipients.contains(killer.getUniqueId())) {
+                givePiglinOre(killer);
+                piglinOreRecipients.add(killer.getUniqueId());
+                // Only announce to the player who got it
+                killer.sendMessage("§6§l✓ You received Piglin Ore as a bonus reward!");
+            }
 
             announceToParticipants("§a✓ " + killer.getName() + " §ahas defeated the Event Wither!");
-            announceToParticipants("§6" + killer.getName() + " §6received Piglin Ore! (One time notification)");
         }
 
         // Stop piglin spawning
@@ -272,6 +281,19 @@ public class WitherEventManager implements Listener {
     }
 
     @EventHandler
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        if (!eventActive || !eventParticipants.contains(event.getEntity())) return;
+
+        Player victim = event.getEntity();
+        Player killer = victim.getKiller();
+
+        // Transfer Wither ore if the victim had it
+        if (witherOreHolder != null && witherOreHolder.equals(victim) && killer != null) {
+            transferWitherOre(victim, killer);
+        }
+    }
+
+    @EventHandler
     public void onPlayerDamagePlayer(EntityDamageByEntityEvent event) {
         if (!eventActive || !(event.getDamager() instanceof Player) || !(event.getEntity() instanceof Player)) {
             return;
@@ -280,13 +302,13 @@ public class WitherEventManager implements Listener {
         Player damager = (Player) event.getDamager();
         Player victim = (Player) event.getEntity();
 
-        // Check if victim has wither ore and dies
+        // Check if victim has wither ore and would die from this damage
         if (witherOreHolder != null && witherOreHolder.equals(victim)) {
             // Schedule check for death after damage is applied
             new BukkitRunnable() {
                 @Override
                 public void run() {
-                    if (victim.getHealth() <= 0 || victim.isDead()) {
+                    if (victim.isDead() || victim.getHealth() <= 0) {
                         transferWitherOre(victim, damager);
                     }
                 }
@@ -316,17 +338,16 @@ public class WitherEventManager implements Listener {
         // Clean up old ore effects and set new ore
         PlayerDataManager dataManager = plugin.getPlayerDataManager();
         OreType oldOre = dataManager.getPlayerOre(player);
-        if (oldOre != null && oldOre != OreType.WITHER) { // Don't clean wither ore if they have it
-            plugin.getPlayerListener().cleanupPlayerEffects(player, oldOre);
-        }
 
-        // Only set piglin ore if they don't have wither ore
+        // Only give piglin ore if they don't have wither ore
         if (oldOre != OreType.WITHER) {
+            if (oldOre != null) {
+                plugin.getPlayerListener().cleanupPlayerEffects(player, oldOre);
+            }
+
             dataManager.setPlayerOre(player, OreType.PIGLIN);
             plugin.getAbilityListener().applyAllOreTypeEffectsFixed(player, OreType.PIGLIN);
         }
-
-        player.sendMessage("§6✓ You received Piglin Ore!");
     }
 
     private void transferWitherOre(Player from, Player to) {
@@ -350,7 +371,7 @@ public class WitherEventManager implements Listener {
         Location portalLoc = arenaCenter.clone().add(0, 0, 15);
         spawnPortalLocation = portalLoc;
 
-        // Create portal frame (simple version)
+        // Create portal frame
         World world = portalLoc.getWorld();
 
         // Create a 3x3 portal frame
@@ -384,9 +405,17 @@ public class WitherEventManager implements Listener {
     private void checkPortalTeleports() {
         if (spawnPortalLocation == null) return;
 
-        for (Player player : eventParticipants) {
+        Iterator<Player> iterator = eventParticipants.iterator();
+        while (iterator.hasNext()) {
+            Player player = iterator.next();
             if (player.getLocation().distance(spawnPortalLocation) < 2) {
                 teleportToSpawn(player);
+                iterator.remove();
+
+                // Check if all players have left
+                if (eventParticipants.isEmpty()) {
+                    endEvent();
+                }
             }
         }
     }
@@ -399,17 +428,17 @@ public class WitherEventManager implements Listener {
             player.teleport(player.getWorld().getSpawnLocation());
         }
 
-        player.sendMessage("§a✓ Returned to spawn!");
-        eventParticipants.remove(player);
-
-        // Check if all players have left
-        if (eventParticipants.isEmpty()) {
-            endEvent();
-        }
+        player.sendMessage("§a✓ Returned to original location!");
     }
 
     private void endEventTimeout() {
         announceToParticipants("§c⚠ Wither Event timed out! Portal opening...");
+
+        // Kill the wither if still alive
+        if (eventWither != null && !eventWither.isDead()) {
+            eventWither.remove();
+        }
+
         createSpawnPortal();
 
         // Force end after 30 more seconds
@@ -446,11 +475,24 @@ public class WitherEventManager implements Listener {
         // Clear scoreboard
         clearEventScoreboard();
 
+        // Clean up portal
+        if (spawnPortalLocation != null) {
+            World world = spawnPortalLocation.getWorld();
+            for (int x = -1; x <= 1; x++) {
+                for (int y = 0; y <= 2; y++) {
+                    Location frameLoc = spawnPortalLocation.clone().add(x, y, 0);
+                    world.getBlockAt(frameLoc).setType(Material.AIR);
+                }
+            }
+        }
+
         // Reset variables
         eventParticipants.clear();
         originalLocations.clear();
+        piglinOreRecipients.clear();
         witherOreHolder = null;
         eventWither = null;
+        spawnPortalLocation = null;
 
         plugin.getLogger().info("Wither Event ended.");
     }
@@ -493,7 +535,8 @@ public class WitherEventManager implements Listener {
                     objective.getScore("§d").setScore(4);
                     objective.getScore("§4Wither Health:").setScore(3);
                     int health = (int) Math.ceil(eventWither.getHealth());
-                    objective.getScore("§c" + health + "/500❤").setScore(2);
+                    int maxHealth = (int) eventWither.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
+                    objective.getScore("§c" + health + "/" + maxHealth + "❤").setScore(2);
                 }
             }
         }
@@ -502,7 +545,8 @@ public class WitherEventManager implements Listener {
     private void updateWitherHealth() {
         if (eventWither != null && !eventWither.isDead()) {
             int health = (int) Math.ceil(eventWither.getHealth());
-            eventWither.setCustomName("§4Event Wither §c[" + health + "❤]");
+            int maxHealth = (int) eventWither.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
+            eventWither.setCustomName("§4Event Wither §c[" + health + "/" + maxHealth + "❤]");
         }
     }
 
